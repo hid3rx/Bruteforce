@@ -136,8 +136,13 @@ with futures.ThreadPoolExecutor(max_workers=THREAD) as executor:
                         stop = True
                         break
                 
+                # 检查是否遇到太多异常
+                if exception_count >= 5:
+                    print("[x] Too much error. Quiting.")
+                    break
+                
                 # 检查是否需要停止
-                if exception_count >= 5 or stop == True:
+                if stop == True:
                     break
                 
                 # 新建线程
