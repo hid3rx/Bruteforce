@@ -156,7 +156,7 @@ with futures.ThreadPoolExecutor(max_workers=THREAD) as executor:
                 # 5分钟显示一次进度
                 if datetime.now() - time_for_now >= timedelta(minutes=5):
                     time_for_now = datetime.now()
-                    print(f"[!] {datetime.now().strftime('%H:%M:%S')} {finished}/{total} finished")
+                    print(f"[!] {datetime.now().strftime('%H:%M:%S')} {finished}/{total} ({finished // total}%) finished")
 
             else:
                 continue
