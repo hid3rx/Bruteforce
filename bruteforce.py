@@ -80,7 +80,7 @@ def bruteforce(username, password):
             timeout=7)
 
         if response.status_code != 401:
-            print(f'[+] Found {username}:{password} => code:{response.status_code} length:{len(response.content)}')
+            print(f'[+] Found {username}:{password}\t=>\tcode:{response.status_code} length:{len(response.content)}')
             return False, True
         
         time.sleep(DELAY)
