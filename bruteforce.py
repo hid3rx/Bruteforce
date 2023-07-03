@@ -88,10 +88,11 @@ def bruteforce(username, password):
         return False, False
 
     except (ConnectTimeout, ConnectionError, ReadTimeout) as e:
+        print(f"[x] Encounter error: {e}")
         return True, False
 
     except Exception as e:
-        print(f"[x] {username}:{password} Encounter {e} error, detail:")
+        print(f"[x] {username}:{password} Encounter error: {e}, detail:")
         print(traceback.format_exc())
         return True, False
 
