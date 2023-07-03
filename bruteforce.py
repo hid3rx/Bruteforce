@@ -106,7 +106,7 @@ with futures.ThreadPoolExecutor(max_workers=THREAD) as executor:
     exception_count = 0 # 连续异常计数
     time_for_now = datetime.now()
 
-    print(f"[!] {datetime.now().strftime('%H:%M:%S')} {finished}/{total} finished")
+    print(f"[!] {datetime.now().strftime('%H:%M:%S')} {finished}/{total} ({finished // total}%) finished")
 
     try:
         for username_index, username in enumerate(USERNAME):
