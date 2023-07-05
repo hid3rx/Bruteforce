@@ -59,6 +59,9 @@ def random_ipv4():
 
 # 爆破函数，返回 (has_exception, found)
 def bruteforce(username, password):
+
+    time.sleep(DELAY)
+    
     try:
         url = 'http://172.29.133.44/vul/burteforce/bf_form.php'
         data = {
