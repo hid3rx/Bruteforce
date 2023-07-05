@@ -89,7 +89,7 @@ def bruteforce(username, password):
         # if "Failed" not in response.text:
 
         if response.status_code != 401:
-            print(f'[+] Found {username}:{password}\t=>\tcode:{response.status_code} length:{len(response.content)}')
+            print(f'[+] {datetime.now().strftime('%H:%M:%S')} Found {username}:{password}\t=>\tcode:{response.status_code} length:{len(response.content)}')
             return False, True
         
         time.sleep(DELAY)
@@ -97,11 +97,11 @@ def bruteforce(username, password):
         return False, False
 
     except (ConnectTimeout, ConnectionError, ReadTimeout) as e:
-        print(f"[x] Encounter error: {e}")
+        print(f"[x] {datetime.now().strftime('%H:%M:%S')} Encounter error: {e}")
         return True, False
 
     except Exception as e:
-        print(f"[x] {username}:{password} Encounter error: {e}, detail:")
+        print(f"[x] {datetime.now().strftime('%H:%M:%S')} {username}:{password} Encounter error: {e}, detail:")
         print(traceback.format_exc())
         return True, False
 
@@ -152,7 +152,7 @@ with futures.ThreadPoolExecutor(max_workers=THREAD) as executor:
                 
                 # 检查是否遇到太多异常
                 if exception_count >= 5:
-                    print("[x] Too much error. Quiting.")
+                    print("[x] {datetime.now().strftime('%H:%M:%S')} Too much error. Quiting.")
                     break
                 
                 # 检查是否需要停止
