@@ -79,6 +79,10 @@ def bruteforce(username, password):
             allow_redirects=False,
             timeout=7)
 
+        # if len(response.content) != 61:
+        # if response.status_code != 401:
+        # if "Failed" not in response.text:
+
         if response.status_code != 401:
             print(f'[+] Found {username}:{password}\t=>\tcode:{response.status_code} length:{len(response.content)}')
             return False, True
