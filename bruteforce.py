@@ -29,12 +29,6 @@ PROXIES = {
     'https': 'http://127.0.0.1:8080'
 }
 
-# 设置Headers
-HEADERS = requests.utils.default_headers()
-HEADERS.update({
-    'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:109.0) Gecko/20100101 Firefox/114.0'
-})
-
 # 加载用户名字典
 try:
     if USERNAME_DIC:
@@ -52,6 +46,14 @@ try:
 except Exception as e:
     print(f'[x] Cannot open "{PASSWORD_DIC}" file {e}')
     os._exit(0)
+
+# 设置Headers
+HEADERS = requests.utils.default_headers()
+HEADERS.update({
+    'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:109.0) Gecko/20100101 Firefox/114.0',
+    "X-Requested-With": "XMLHttpRequest",
+    'Cookie': 'PHPSESSID=12312312312312312321312321312'
+})
 
 # 随机IP生成
 def random_ipv4():
