@@ -91,8 +91,6 @@ def bruteforce(username, password):
         if response.status_code != 401:
             print(f'[+] {datetime.now().strftime('%H:%M:%S')} Found {username}:{password}\t=>\tcode:{response.status_code} length:{len(response.content)}')
             return False, True
-        
-        time.sleep(DELAY)
 
         return False, False
 
