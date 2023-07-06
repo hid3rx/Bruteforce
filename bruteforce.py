@@ -100,7 +100,7 @@ def bruteforce(username, password):
         return False, False
 
     except (ConnectTimeout, ConnectionError, ReadTimeout) as e:
-        print(f"[x] {datetime.now().strftime('%H:%M:%S')} Encounter error: {e}")
+        print(f"[x] {datetime.now().strftime('%H:%M:%S')} {username}:{password} Encounter error: {e}")
         return True, False
 
     except Exception as e:
@@ -122,8 +122,8 @@ with futures.ThreadPoolExecutor(max_workers=THREAD) as executor:
     print(f"[!] {datetime.now().strftime('%H:%M:%S')} {finished}/{total} ({finished // total}%) finished")
 
     try:
-        for username_index, username in enumerate(USERNAME):
-            for password_index, password in enumerate(PASSWORD):
+        for username in USERNAME:
+            for password in PASSWORD:
 
                 # 清除右边的换行
                 username = username.rstrip()
