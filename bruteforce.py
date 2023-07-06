@@ -25,6 +25,9 @@ DELAY = 1
 # 线程池
 THREAD = 1
 
+# 是否使用代理
+USE_PROXY = True
+
 # 设置代理
 PROXIES = {
     "http": "http://127.0.0.1:8080",
@@ -54,7 +57,7 @@ HEADERS = requests.utils.default_headers()
 HEADERS.update({
     "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:109.0) Gecko/20100101 Firefox/114.0",
     "X-Requested-With": "XMLHttpRequest",
-    "Cookie": "PHPSESSID=12312312312312312321312321312"
+    "Cookie": "PHPSESSID=123"
 })
 
 # 随机IP生成
@@ -82,7 +85,7 @@ def bruteforce(username, password):
             data=data,
             verify=False,
             headers=HEADERS,
-            proxies=PROXIES,
+            proxies=PROXIES if USE_PROXY else None,
             allow_redirects=False,
             timeout=7)
 
