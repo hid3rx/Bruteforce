@@ -7,8 +7,10 @@ from datetime import datetime, timedelta
 urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
 
 # 字典路径，置空就不读取
-USERNAME_DIC = "D:\\Bruteforce\\username.txt" # /root/bruteforce/username.txt
-PASSWORD_DIC = "D:\\Bruteforce\\password.txt" # /root/bruteforce/password.txt
+#USERNAME_DIC = "/root/bruteforce/username.txt"
+#PASSWORD_DIC = "/root/bruteforce/password.txt"
+USERNAME_DIC = "D:\\Bruteforce\\username.txt"
+PASSWORD_DIC = "D:\\Bruteforce\\password.txt"
 
 # 字典
 USERNAME = []
