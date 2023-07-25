@@ -108,18 +108,26 @@ def bruteforce(username, password):
         print(traceback.format_exc())
         return True, False
 
-# 开始爆破
-print(f"[+] {datetime.now().strftime('%H:%M:%S')} task start")
+# deltatime 格式化
+def strfdelta(delta, fmt):
+    d = dict()
+    d["days"] = delta.days
+    d["hours"], rem = divmod(delta.seconds, 3600)
+    d["minutes"], d["seconds"] = divmod(rem, 60)
+    return fmt.format(**d)
 
+# 开始爆破
 with futures.ThreadPoolExecutor(max_workers=THREAD) as executor:
 
     tasks = set()
     total = len(USERNAME) * len(PASSWORD)
     finished = 0
     exception_count = 0 # 连续异常计数
-    time_for_now = datetime.now()
+    start_at = datetime.now()
+    time_for_now = start_at
 
-    print(f"[!] {datetime.now().strftime('%H:%M:%S')} {finished}/{total} ({finished // total}%) finished")
+    print(f"[+] {start_at.strftime('%H:%M:%S')} task start")
+    print(f"[!] {start_at.strftime('%H:%M:%S')} {finished}/{total} ({finished // total}%) finished")
 
     try:
         for username in USERNAME:
@@ -146,9 +154,10 @@ with futures.ThreadPoolExecutor(max_workers=THREAD) as executor:
                     if has_exception:
                         exception_count += 1
                         continue
+                    else:
+                        exception_count = 0
 
                     # 是否仅爆破一个账号
-                    exception_count = 0
                     if ONLY_ONCE and found:
                         stop = True
                         break
@@ -182,4 +191,6 @@ with futures.ThreadPoolExecutor(max_workers=THREAD) as executor:
         print("[!] Get Ctrl-C, wait for all threads exit.")
         futures.wait(tasks, return_when=futures.ALL_COMPLETED)
 
-print(f"[+] {datetime.now().strftime('%H:%M:%S')} task finished")
+    end_at = datetime.now()
+    fmt = "{days} days {hours}:{minutes}:{seconds}"
+    print(f"[+] {end_at.strftime('%H:%M:%S')} task finished, elapsed {strfdelta(end_at - start_at, fmt)}")
