@@ -1,7 +1,7 @@
 # coding=utf-8
 
 from requests.exceptions import ConnectTimeout, ConnectionError, ReadTimeout
-import requests, urllib3, random, os, traceback, time, binascii, base64
+import requests, urllib3, random, os, traceback, time, binascii, base64, threading
 from datetime import datetime, timedelta
 from Crypto.PublicKey import RSA
 from Crypto.Cipher import DES, AES, PKCS1_v1_5
@@ -23,7 +23,7 @@ PASSWORD = ["123456"]  # PASSWORD = PASSWORD + PASSWORD_FILE_PATH
 #USERNAME_FILE_PATH = "/root/bruteforce/username.txt"
 #PASSWORD_FILE_PATH = "/root/bruteforce/password.txt"
 #USERNAME_FILE_PATH = "D:\\Bruteforce\\username.txt"
-#PASSWORD_FILE_PATH = "D:\\Bruteforce\\password.txt"
+PASSWORD_FILE_PATH = "D:\\Bruteforce\\password.txt"
 
 # 只爆破一个账号
 ONLY_ONCE = False
@@ -170,13 +170,15 @@ def run(username, password):
 
 TASKS = set()
 TOTAL_COUNT = len(USERNAME) * len(PASSWORD)
-FINISHED_COUNT = 0
+
+FINISHED_COUNT = 0 # 已完成计数
+FINISHED_COUNT_LOCK = threading.Lock() # 已完成计数锁
+
 EXCEPTION_COUNT = 0 # 连续异常计数
-FOUND_PASSWORD = False # 找到密码信号
+EXCEPTION_COUNT_LOCK = threading.Lock() # 连续异常计数锁
 
-STOP_FLAG = False # 线程停止信号
-
-TIME_FOR_NOW = datetime.now()
+THREAD_POOL_STOP_SIGNAL = False # 线程池停止信号
+REPORT_THREAD_STOP_SIGNAL = threading.Event() # 进度汇报线程停止信号
 
 # deltatime 格式化
 def strfdelta(delta, fmt):
@@ -188,48 +190,43 @@ def strfdelta(delta, fmt):
 
 # 任务完成时的回调
 def callback(future):
-    global STOP_FLAG, FINISHED_COUNT, EXCEPTION_COUNT
+    global THREAD_POOL_STOP_SIGNAL, FINISHED_COUNT, EXCEPTION_COUNT
     
     # 获取结果
     has_exception, found_password = future.result()
     
     # 完成计数+1
-    FINISHED_COUNT += 1
+    with FINISHED_COUNT_LOCK:
+        FINISHED_COUNT += 1
     
     # 检查异常
-    if has_exception:
-        EXCEPTION_COUNT += 1
-        if EXCEPTION_COUNT >= 5:
-            print(f"[x] {datetime.now().strftime('%H:%M:%S')} Too much error. Quiting.")
-            STOP_FLAG = True
-    else:
-        EXCEPTION_COUNT = 0
+    with EXCEPTION_COUNT_LOCK:
+        if has_exception:
+            EXCEPTION_COUNT += 1
+            if EXCEPTION_COUNT > 10:
+                print(f"[x] {datetime.now().strftime('%H:%M:%S')} Too much error. Quiting.")
+                THREAD_POOL_STOP_SIGNAL = True
+        else:
+            EXCEPTION_COUNT = 0
 
     # 标记是否找到密码
-    if found_password == True:
-        FOUND_PASSWORD = True
-        if FOUND_PASSWORD and ONLY_ONCE:
-            print(f"[+] {datetime.now().strftime('%H:%M:%S')} Password found. Quiting.")
-            STOP_FLAG = True
+    if found_password and ONLY_ONCE:
+        print(f"[+] {datetime.now().strftime('%H:%M:%S')} Password found. Quiting.")
+        THREAD_POOL_STOP_SIGNAL = True
 
 # 并发运行爆破函数
 def concurrent_run(executor):
-    global STOP_FLAG, TIME_FOR_NOW, TASKS, FINISHED_COUNT
+    global THREAD_POOL_STOP_SIGNAL, TASKS, FINISHED_COUNT
     
     for username in USERNAME:
         for password in PASSWORD:
-            # 检查是否需要退出
-            if STOP_FLAG == True:
-                return
-
-            # 每X分钟显示一次进度
-            if datetime.now() - TIME_FOR_NOW >= timedelta(minutes=1):
-                TIME_FOR_NOW = datetime.now()
-                print(f"[!] {datetime.now().strftime('%H:%M:%S')} {FINISHED_COUNT}/{TOTAL_COUNT} ({FINISHED_COUNT * 100 // TOTAL_COUNT}%) finished")
-
             # 如果队列过长就等待
-            if len(TASKS) >= THREADS * 5:
+            if len(TASKS) >= THREADS:
                 _, TASKS = futures.wait(TASKS, return_when=futures.FIRST_COMPLETED)
+
+            # 检查是否需要退出
+            if THREAD_POOL_STOP_SIGNAL == True:
+                return
 
             # 清除右边的换行
             username = username.rstrip()
@@ -240,14 +237,34 @@ def concurrent_run(executor):
             t.add_done_callback(callback)
             TASKS.add(t)
 
-# 线程池
-with futures.ThreadPoolExecutor(max_workers=THREADS) as executor:
+# 报告进度
+def report_elapsed_time():
+    global REPORT_THREAD_STOP_SIGNAL, TOTAL_COUNT, FINISHED_COUNT
 
+    # 报告启动时间
     now = datetime.now()
     start_at = now
     print(f"[+] {now.strftime('%H:%M:%S')} task start")
     print(f"[!] {now.strftime('%H:%M:%S')} {FINISHED_COUNT}/{TOTAL_COUNT} ({FINISHED_COUNT * 100 // TOTAL_COUNT}%) finished")
 
+    # 死循环汇报时间
+    while True:
+        if True == REPORT_THREAD_STOP_SIGNAL.wait(timeout=30.0):
+            break
+        print(f"[!] {datetime.now().strftime('%H:%M:%S')} {FINISHED_COUNT}/{TOTAL_COUNT} ({FINISHED_COUNT * 100 // TOTAL_COUNT}%) finished")
+
+    # 报告结束时间
+    now = datetime.now()
+    end_at = now
+    elapsed = strfdelta(end_at - start_at, "{days} days {hours}:{minutes}:{seconds}")
+    print(f"[+] {now.strftime('%H:%M:%S')} task finished, elapsed {elapsed}")
+
+# 启动进度报告线程
+thread = threading.Thread(target=report_elapsed_time)
+thread.start()
+
+# 线程池
+with futures.ThreadPoolExecutor(max_workers=THREADS) as executor:
     try:
         concurrent_run(executor)
         print("[!] Wait for all threads exit.")
@@ -255,8 +272,8 @@ with futures.ThreadPoolExecutor(max_workers=THREADS) as executor:
     except KeyboardInterrupt:
         print("[!] Get Ctrl-C, wait for all threads exit.")
         futures.wait(TASKS, return_when=futures.ALL_COMPLETED)
+    finally:
+        REPORT_THREAD_STOP_SIGNAL.set()
 
-    now = datetime.now()
-    end_at = now
-    elapsed = strfdelta(end_at - start_at, "{days} days {hours}:{minutes}:{seconds}")
-    print(f"[+] {now.strftime('%H:%M:%S')} task finished, elapsed {elapsed}")
+# 等待线程退出
+thread.join()
