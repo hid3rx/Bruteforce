@@ -226,8 +226,8 @@ def callback(future):
 def concurrent_run(executor):
     global THREAD_POOL_STOP_SIGNAL, TASKS, FINISHED_COUNT
     
-    for username in USERNAME:
-        for password in PASSWORD:
+    for password in PASSWORD:
+        for username in USERNAME:
             # 如果队列过长就等待
             if len(TASKS) >= THREADS:
                 _, TASKS = futures.wait(TASKS, return_when=futures.FIRST_COMPLETED)
