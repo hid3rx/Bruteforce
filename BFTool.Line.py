@@ -244,9 +244,9 @@ def report_elapsed_time():
     print(f"[+] {now.strftime('%H:%M:%S')} task start")
     print(f"[!] {now.strftime('%H:%M:%S')} {FINISHED_COUNT}/{TOTAL_COUNT} ({FINISHED_COUNT * 100 // TOTAL_COUNT}%) finished")
 
-    # 死循环汇报时间
+    # 每10分钟汇报一次进度
     while True:
-        if True == REPORT_THREAD_STOP_SIGNAL.wait(timeout=60.0):
+        if True == REPORT_THREAD_STOP_SIGNAL.wait(timeout=600.0):
             break
         print(f"[!] {datetime.now().strftime('%H:%M:%S')} {FINISHED_COUNT}/{TOTAL_COUNT} ({FINISHED_COUNT * 100 // TOTAL_COUNT}%) finished")
 
