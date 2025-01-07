@@ -9,6 +9,8 @@ from Crypto.Cipher import DES, AES, PKCS1_v1_5
 from Crypto.Util.Padding import pad
 from concurrent import futures
 from lxml import etree
+#from selenium.webdriver.chrome.options import Options
+#from selenium import webdriver
 
 # 禁用https警告
 urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
@@ -62,6 +64,28 @@ if 'PASSWORD_FILE_PATH' in vars() and PASSWORD_FILE_PATH:
     except Exception as e:
         print(f"[x] Cannot open '{PASSWORD_FILE_PATH}' file {e}")
         os._exit(0)
+
+#
+# =================== [ 爆破结果 ] ===================
+#
+
+# 结果保存位置
+SUCCESS_OUTPUT_PATH = "result.success.txt"
+SUCCESS_OUTPUT_LOCK = threading.Lock() # 文件互斥锁
+EXCEPTION_OUTPUT_PATH = "result.exception.txt"
+EXCEPTION_OUTPUT_LOCK = threading.Lock() # 文件互斥锁
+
+with open(SUCCESS_OUTPUT_PATH, "a", encoding="utf-8") as fout:
+    fout.write(f"\n# Begin at {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}\n\n")
+
+with open(EXCEPTION_OUTPUT_PATH, "a", encoding="utf-8") as fout:
+    fout.write(f"\n# Begin at {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}\n\n")
+
+# 写入文件函数，末尾的换行符需要自行处理
+def write_to_file(path: str, lock, text: str):
+    with lock:
+        with open(path, "a", encoding="utf-8") as fout:
+            fout.write(text)
 
 #
 # =================== [ 工具函数 ] ===================
@@ -150,8 +174,6 @@ COOKIES = {
 
 # 根据需要决定是否启动Selenium
 BROWSER = None
-#from selenium.webdriver.chrome.options import Options
-#from selenium import webdriver
 #BROWSER = selenium_runtime()
 
 # 爆破函数，返回 (no_exception, found_password)
@@ -199,18 +221,22 @@ def run(username, password):
         if "Unknown user" in response.text:
             return True, False
 
-        print(f"[+] {datetime.now().strftime('%H:%M:%S')} Found {username}:{password}\t\t=> code:{response.status_code} length:{len(response.content)}")
+        write_to_file(SUCCESS_OUTPUT_PATH, SUCCESS_OUTPUT_LOCK, f"{username}:{password}\n")
+        print(f"[++] {datetime.now().strftime('%H:%M:%S')} Found {username}:{password}\t\t=> code:{response.status_code} length:{len(response.content)}")
         return True, True
 
     except (ConnectTimeout, ConnectionError, ReadTimeout) as e:
+        write_to_file(EXCEPTION_OUTPUT_PATH, EXCEPTION_OUTPUT_LOCK, f"{username}:{password}\n")
         print(f"[x] {datetime.now().strftime('%H:%M:%S')} {username}:{password} Encounter error: {e}")
         return False, False
     
     except MaxRetryError as e: # 大概率是 selenium 引起的异常
+        write_to_file(EXCEPTION_OUTPUT_PATH, EXCEPTION_OUTPUT_LOCK, f"{username}:{password}\n")
         print(f"[x] {datetime.now().strftime('%H:%M:%S')} Selenium has crashed or has been manually closed")
         return False, False
 
     except Exception as e:
+        write_to_file(EXCEPTION_OUTPUT_PATH, EXCEPTION_OUTPUT_LOCK, f"{username}:{password}\n")
         print(f"[x] {datetime.now().strftime('%H:%M:%S')} {username}:{password} Encounter error: {e}, detail:")
         print(traceback.format_exc())
         return False, False
