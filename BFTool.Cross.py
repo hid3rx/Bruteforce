@@ -72,13 +72,13 @@ if 'PASSWORD_FILE_PATH' in vars() and PASSWORD_FILE_PATH:
 # 结果保存位置
 SUCCESS_OUTPUT_PATH = "result.success.txt"
 SUCCESS_OUTPUT_LOCK = threading.Lock() # 文件互斥锁
-EXCEPTION_OUTPUT_PATH = "result.exception.txt"
-EXCEPTION_OUTPUT_LOCK = threading.Lock() # 文件互斥锁
+ERROR_OUTPUT_PATH = "result.error.txt"
+ERROR_OUTPUT_LOCK = threading.Lock() # 文件互斥锁
 
 with open(SUCCESS_OUTPUT_PATH, "a", encoding="utf-8") as fout:
     fout.write(f"\n# Begin at {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}\n\n")
 
-with open(EXCEPTION_OUTPUT_PATH, "a", encoding="utf-8") as fout:
+with open(ERROR_OUTPUT_PATH, "a", encoding="utf-8") as fout:
     fout.write(f"\n# Begin at {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}\n\n")
 
 # 写入文件函数，末尾的换行符需要自行处理
@@ -226,17 +226,17 @@ def run(username, password):
         return True, True
 
     except (ConnectTimeout, ConnectionError, ReadTimeout) as e:
-        write_to_file(EXCEPTION_OUTPUT_PATH, EXCEPTION_OUTPUT_LOCK, f"{username}:{password}\n")
+        write_to_file(ERROR_OUTPUT_PATH, ERROR_OUTPUT_LOCK, f"{username}:{password}\n")
         print(f"[x] {datetime.now().strftime('%H:%M:%S')} {username}:{password} Encounter error: {e}")
         return False, False
     
     except MaxRetryError as e: # 大概率是 selenium 引起的异常
-        write_to_file(EXCEPTION_OUTPUT_PATH, EXCEPTION_OUTPUT_LOCK, f"{username}:{password}\n")
+        write_to_file(ERROR_OUTPUT_PATH, ERROR_OUTPUT_LOCK, f"{username}:{password}\n")
         print(f"[x] {datetime.now().strftime('%H:%M:%S')} Selenium has crashed or has been manually closed")
         return False, False
 
     except Exception as e:
-        write_to_file(EXCEPTION_OUTPUT_PATH, EXCEPTION_OUTPUT_LOCK, f"{username}:{password}\n")
+        write_to_file(ERROR_OUTPUT_PATH, ERROR_OUTPUT_LOCK, f"{username}:{password}\n")
         print(f"[x] {datetime.now().strftime('%H:%M:%S')} {username}:{password} Encounter error: {e}, detail:")
         print(traceback.format_exc())
         return False, False
