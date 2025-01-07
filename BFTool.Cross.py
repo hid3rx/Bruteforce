@@ -9,8 +9,6 @@ from Crypto.Cipher import DES, AES, PKCS1_v1_5
 from Crypto.Util.Padding import pad
 from concurrent import futures
 from lxml import etree
-#from selenium.webdriver.chrome.options import Options 
-#from selenium import webdriver
 
 # 禁用https警告
 urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
@@ -152,6 +150,8 @@ COOKIES = {
 
 # 根据需要决定是否启动Selenium
 BROWSER = None
+#from selenium.webdriver.chrome.options import Options
+#from selenium import webdriver
 #BROWSER = selenium_runtime()
 
 # 爆破函数，返回 (no_exception, found_password)
