@@ -95,7 +95,7 @@ def write_to_file(path: str, lock, text: str):
 
 # # AES加密
 # def AES_encrypt(message: str) -> str:
-    # cipher = AES.new(key=b'1234567890ABCDEF', iv=b'1234567890ABCDEF', mode=DES.MODE_CBC)
+    # cipher = AES.new(key=b'1234567890ABCDEF', iv=b'1234567890ABCDEF', mode=AES.MODE_CBC)
     # message = pad(message.encode('utf-8'), AES.block_size, style='pkcs7')
     # encrypted = cipher.encrypt(message)
     # encrypted = base64.b64encode(encrypted) # BASE64
