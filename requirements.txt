@@ -1,4 +1,0 @@
-requests
-pycryptodome
-lxml
-selenium
