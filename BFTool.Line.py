@@ -28,8 +28,8 @@ urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
 # 字典
 USERNAME_PASSWORD_PAIR = ["admin:123456"]
 
-# 字典文件路径，代码被注释、空字符串或None就不读取
-#PASSWORD_FILE_PATH = "D:\\Bruteforce\\password.txt"
+# 用户名密码对文件路径，代码被注释、空字符串或None就不读取
+#USERNAME_PASSWORD_PAIR_FILE_PATH = "D:\\Bruteforce\\username-password-pair.txt"
 
 # 只爆破一个账号
 ONLY_ONCE = False
@@ -50,12 +50,12 @@ PROXIES = {
 }
 
 # 加载用户名字典
-if 'PASSWORD_FILE_PATH' in vars() and PASSWORD_FILE_PATH:
+if 'USERNAME_PASSWORD_PAIR_FILE_PATH' in vars() and USERNAME_PASSWORD_PAIR_FILE_PATH:
     try:
-        with open(PASSWORD_FILE_PATH, "r", encoding="utf-8") as f:
+        with open(USERNAME_PASSWORD_PAIR_FILE_PATH, "r", encoding="utf-8") as f:
             USERNAME_PASSWORD_PAIR.extend(f.readlines())
     except Exception as e:
-        print(f"[x] Cannot open '{PASSWORD_FILE_PATH}' file {e}")
+        print(f"[x] Cannot open '{USERNAME_PASSWORD_PAIR_FILE_PATH}' file {e}")
         os._exit(0)
 
 #
