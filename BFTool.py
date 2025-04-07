@@ -1,7 +1,7 @@
 # coding=utf-8
 
-# python -m pip install requests requests-ntlm pycryptodome
-# python -m pip install lxml selenium
+# python -m pip install requests requests-ntlm pycryptodome lxml
+# python -m pip install selenium
 
 import requests, urllib3, random, os, traceback, time, binascii, base64, threading, json
 from requests.exceptions import ConnectTimeout, ConnectionError, ReadTimeout
@@ -40,11 +40,11 @@ USERPASS_FILE_PATH = r"userpass.txt"
 # 只爆破一个账号
 ONLY_ONCE = False
 
-# 爆破后暂停时长，单位秒
-DELAY = 1
-
 # 线程并发数
 THREADS = 1
+
+# 每个线程发起登录后暂停时长，单位秒
+DELAY = 1
 
 # 是否使用代理
 USE_PROXY = True
@@ -171,7 +171,7 @@ def MD5_hash(message: str) -> str:
 # BROWSER = webdriver.Chrome(options=BROWSER_OPTIONS)
 # BROWSER.get('data:text/html;charset=utf-8,<script src="https://example.com/js/jsencrypt.min.js"></script>')
 
-# # 载入自定义JS脚本
+# # 载入自定义JS脚本（仅是载入，还没有运行）
 # BROWSER.execute_script(r'''
 # pk = "-----BEGIN PUBLIC KEY-----\n";
 # pk += "MIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEA2hQp7K25U5kQqE/WFX7f\n";
