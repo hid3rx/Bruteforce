@@ -148,8 +148,8 @@ def MD5_hash(message: str) -> str:
 如果遇到提交的某些数据需要调用网页中的某些JS函数才能获得，则可以使用以下代码来实现JS的载入和调用：
 
 ```python
-#from selenium.webdriver.chrome.options import Options
-#from selenium import webdriver
+from selenium.webdriver.chrome.options import Options
+from selenium import webdriver
 
 # 以无头模式启动Chrome浏览器
 BROWSER_OPTIONS = Options()
