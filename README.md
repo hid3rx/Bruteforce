@@ -138,9 +138,9 @@ MD5哈希，输出HEX格式
 
 ```python
 def MD5_hash(message: str) -> str:
-	hash = MD5.new()
-	hash.update(message.encode('utf-8'))
-	return hash.hexdigest()
+    hash = MD5.new()
+    hash.update(message.encode('utf-8'))
+    return hash.hexdigest()
 ```
 
 ## 五、JS脚本调用（可选）
@@ -221,6 +221,8 @@ def run(username, password): # 爆破函数，返回 (no_exception, found_passwo
 这里给出一个简单的爆破例子，只要掌握requests模块的用法，相信你能很轻易的读懂以下代码，在这个例子中，判断登录密码是否找到，主要看服务器的响应中，是否包含 "Login failed" 或 "Unknown user" 字段：
 
 > `username` 和 `password` 参数可以调用前面提到的加密算法进行加密，同时也可以结合上述的验证码识别、JS函数调用等操作，项目的代码中还提供更多可能会用到的代码，如：使用Xpath获取CSRF Token、使用NTLM认证等
+
+> 代码支持设置自定义请求头和Cookies，只需要编辑、更新 `HEADERS` 和 `COOKIES` 变量即可
 
 ```python
 
