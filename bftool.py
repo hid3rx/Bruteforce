@@ -158,6 +158,11 @@ def MD5_hash(message: str) -> str:
 	hash.update(message.encode('utf-8'))
 	return hash.hexdigest()
 
+def Base64_encode(message: str) -> str:
+	message = message.encode('utf-8')
+	message = base64.b64encode(message)
+	return message.decode('utf-8')
+
 #
 # =================== [ JS脚本执行 ] ===================
 #
