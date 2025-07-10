@@ -3,7 +3,7 @@
 # python -m pip install requests requests-ntlm pycryptodome lxml
 # python -m pip install selenium
 
-import requests, urllib3, random, os, traceback, time, binascii, base64, threading, json
+import requests, urllib3, random, os, traceback, time, binascii, base64, threading, json, logging
 from requests.exceptions import ConnectTimeout, ConnectionError, ReadTimeout
 from urllib3.exceptions import MaxRetryError
 from datetime import datetime, timedelta
@@ -23,6 +23,23 @@ from lxml import etree
 
 # 禁用https警告
 urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
+
+# 日志设置
+logger_for_found = logging.getLogger("logger_for_found")
+logger_for_found.setLevel(logging.DEBUG)
+
+file_handler_for_found = logging.FileHandler('found.txt')
+file_handler_for_found.setFormatter(logging.Formatter('%(message)s'))
+stream_handler_for_found = logging.StreamHandler()
+stream_handler_for_found.setFormatter(logging.Formatter('%(message)s'))
+
+logger_for_exception = logging.getLogger("logger_for_exception")
+logger_for_exception.setLevel(logging.DEBUG)
+
+file_handler_for_exception = logging.FileHandler('exception.txt')
+file_handler_for_exception.setFormatter(logging.Formatter('%(message)s'))
+stream_handler_for_exception = logging.StreamHandler()
+stream_handler_for_exception.setFormatter(logging.Formatter('%(message)s'))
 
 #
 # =================== [ 全局设置 ] ===================
@@ -89,22 +106,6 @@ if 'USERPASS_FILE_PATH' in vars() and USERPASS_FILE_PATH:
     except Exception as e:
         print(f"[x] Cannot open '{USERPASS_FILE_PATH}' file {e}")
         os._exit(0)
-
-#
-# =================== [ 爆破结果 ] ===================
-#
-
-FOUND_PATH = "found.txt"
-FOUND_LOCK = threading.Lock() # 文件互斥锁
-
-EXCEPTION_PATH = "exception.txt"
-EXCEPTION_LOCK = threading.Lock() # 文件互斥锁
-
-# 写入文件函数，末尾的换行符需要自行处理
-def log(path: str, lock, text: str):
-    with lock:
-        with open(path, "a", encoding="utf-8") as fout:
-            fout.write(text)
 
 #
 # =================== [ 加密函数 ] ===================
@@ -282,23 +283,21 @@ def run(username, password):
             return True, False
         
         # 找到密码
-        output = f"[++] {datetime.now().strftime('%H:%M:%S')} Found {username}:{password}\t\t=> code:{response.status_code} length:{len(response.content)}"
-        log(FOUND_PATH, FOUND_LOCK, f"{output}\n")
-        print(output)
+        logger_for_found.info(f"[++] {datetime.now().strftime('%H:%M:%S')} Found {username}:{password}\t\t=> code:{response.status_code} length:{len(response.content)}")
         return True, True
 
     except (ConnectTimeout, ConnectionError, ReadTimeout) as e:
-        log(EXCEPTION_PATH, EXCEPTION_LOCK, f"{username}:{password}\n")
+        logger_for_exception.info(f"{username}:{password}")
         print(f"[x] {datetime.now().strftime('%H:%M:%S')} {username}:{password} Encounter error: {e}")
         return False, False
     
     except MaxRetryError as e: # 大概率是 selenium 引起的异常
-        log(EXCEPTION_PATH, EXCEPTION_LOCK, f"{username}:{password}\n")
+        logger_for_exception.info(f"{username}:{password}")
         print(f"[x] {datetime.now().strftime('%H:%M:%S')} Selenium has crashed or has been manually closed")
         return False, False
 
     except Exception as e:
-        log(EXCEPTION_PATH, EXCEPTION_LOCK, f"{username}:{password}\n")
+        logger_for_exception.info(f"{username}:{password}")
         print(f"[x] {datetime.now().strftime('%H:%M:%S')} {username}:{password} Encounter error: {e}, detail:")
         print(traceback.format_exc())
         return False, False
@@ -403,8 +402,14 @@ REPORT_THREAD = threading.Thread(target=report_elapsed_time)
 REPORT_THREAD.start()
 
 # 日志记录时间
-log(FOUND_PATH, FOUND_LOCK, f"\n# Begin at {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}\n\n")
-log(EXCEPTION_PATH, EXCEPTION_LOCK, f"\n# Begin at {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}\n\n")
+logger_for_found.addHandler(file_handler_for_found)
+logger_for_found.info(f"\n# Begin at {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}\n")
+logger_for_found.addHandler(stream_handler_for_found)
+
+# 日志记录时间
+logger_for_exception.addHandler(file_handler_for_exception)
+logger_for_exception.info(f"\n# Begin at {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}\n")
+logger_for_exception.addHandler(stream_handler_for_exception)
 
 # 线程池
 with futures.ThreadPoolExecutor(max_workers=THREADS) as executor:
