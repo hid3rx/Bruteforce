@@ -348,7 +348,7 @@ if __name__ == "__main__":
                     line = line.strip()
                     if not line:
                         continue
-                    usernames.add(line)
+                    usernames.append(line)
         except Exception as e:
             print(f'[x] Cannot open \'{configs["account_file"]["username"]}\' username file {e}')
             os._exit(0)
@@ -362,7 +362,7 @@ if __name__ == "__main__":
                     line = line.strip()
                     if not line:
                         continue
-                    passwords.add(line)
+                    passwords.append(line)
         except Exception as e:
             print(f'[x] Cannot open \'{configs["account_file"]["password"]}\' password file {e}')
             os._exit(0)
