@@ -20,8 +20,8 @@ configs = \
 
     # 字典文件
     "account_file": {
-        "username": "", # /path/to/username.txt
-        "password": ""  # /path/to/password.txt
+        "username": r"", # /path/to/username.txt
+        "password": r""  # /path/to/password.txt
     },
 
     # 爆破模式
