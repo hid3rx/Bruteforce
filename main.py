@@ -157,27 +157,15 @@ def strfdelta(delta, fmt):
 # html = etree.HTML(response.text, etree.HTMLParser())
 # csrftoken = html.xpath('//input[@type="hidden" and @id="csrf"]/@value')[0]
 
-
 #
 # =================== [ 用selenium执行JS用例 ] ===================
 #
 
-# import atexit
 # import execjs
 
-# # 这里浏览器建议设置成全局变量，方便下面的cleanup函数可以访问到driver变量
-# driver = execjs.init()
-
-# # 这里需要自行编写功能函数
-# signature = execjs.signature(driver, "123456")
+# # 这里需要修改execjs中的功能函数，自行定制所需功能
+# signature = execjs.signature("123456")
 # print(signature)
-
-# # 确保浏览器可以正确退出
-# def cleanup(driver):
-#     if driver.service.process:
-#         print("Exiting selenium browser...")
-#         driver.quit()
-# atexit.register(cleanup, driver)
 
 #
 # =================== [ 爆破函数 ] ===================

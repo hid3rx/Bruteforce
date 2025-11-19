@@ -2,4 +2,3 @@ curl_cffi
 ddddocr
 lxml
 pycryptodome
-selenium
