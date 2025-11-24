@@ -126,7 +126,7 @@ def strfdelta(delta, fmt):
 # =================== [ 加密用例 ] ===================
 #
 
-# import crypto 
+# from utils import crypto 
 
 # password = crypto.DES_encrypt("123456")
 # password = crypto.AES_encrypt("123456")
@@ -138,7 +138,7 @@ def strfdelta(delta, fmt):
 # =================== [ 验证码识别用例 ] ===================
 #
 
-# import captchadet 
+# from utils import captchadet 
 # ocr = captchadet.init()
 # response = session.get("https://example.com/login/vcode")
 
@@ -161,7 +161,7 @@ def strfdelta(delta, fmt):
 # =================== [ 用selenium执行JS用例 ] ===================
 #
 
-# import execjs
+# from utils import execjs
 
 # # 这里需要修改execjs中的功能函数，自行定制所需功能
 # signature = execjs.signature("123456")
