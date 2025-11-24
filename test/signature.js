@@ -145,5 +145,6 @@ function u0e(e) {
     s0e(a0e(e))
 }
 function go(e) {
-    return u0e(e)
+    var output = u0e(e);
+    std.puts(output);
 }
