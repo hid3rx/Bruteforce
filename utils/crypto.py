@@ -4,7 +4,7 @@ import base64, binascii
 from Crypto.PublicKey import RSA
 from Crypto.Cipher import DES, AES, PKCS1_v1_5
 from Crypto.Util.Padding import pad
-from Crypto.Hash import MD5
+from Crypto.Hash import HMAC, MD5, SHA256
 
 # DES加密
 def DES_encrypt(message: str) -> str:
@@ -51,6 +51,11 @@ def MD5_hash(message: str) -> str:
 	hash = MD5.new()
 	hash.update(message.encode('utf-8'))
 	return hash.hexdigest()
+
+def HMAC_hash(message: str) -> str:
+    hash = HMAC.new(key=b'123456', digestmod=SHA256)
+    hash.update(message.encode())
+    return hash.hexdigest()
 
 def Base64_encode(message: str) -> str:
 	message = message.encode('utf-8')
