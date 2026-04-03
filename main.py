@@ -139,15 +139,14 @@ def strfdelta(delta, fmt):
 # =================== [ 验证码识别用例 ] ===================
 #
 
-# from utils import captchadet 
-# ocr = captchadet.init()
+# from utils import captchadet
+# ocr = captchadet.DdddOcr() # or captchadet.RuoyiOcr()
 # response = session.get("https://example.com/login/vcode")
-
-## if response.content is bytes image
-# captcha = captchadet.identify_image(ocr, response.content)
-
-## if response.text is inline image like data:image/png;base64,iVBOR...
-# captcha = captchadet.identify_inline_image(ocr, response.text)
+# # if response.content is bytes image
+# captcha = ocr.identify_image_bytes(response.content)
+# # if response.text is inline image like data:image/png;base64,iVBOR...
+# captcha = ocr.identify_image_inline(response.text)
+# print(captcha)
 
 #
 # =================== [ 用XPath读取CSRF Token用例 ] ===================
