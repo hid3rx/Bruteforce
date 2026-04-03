@@ -17,7 +17,7 @@
 1. 使用 Python + curl_cffi + PyCryptodome 的组合进行开发，使用 curl_cffi 模拟真实浏览器TLS指纹，避免被WAF识别
 2. 预置了常见的加密/哈希算法（DES、AES、RSA、MD5、HMAC、Base64），登录时直接调用即可实现用户名密码加密
 3. 支持使用 QuickJS 执行JS脚本，无需依赖浏览器环境，轻量高效
-4. 支持 ddddocr 验证码识别，可识别常见图片验证码及内联Base64图片
+4. 内置 ONNX 验证码识别模块，支持 `dddd` 通用识别和 `ruoyi`（若依）专用识别，可识别字节图片与内联Base64图片
 5. 支持多线程并发操作，以及设置每次发起请求前延迟固定时间
 6. 支持两种爆破模式：`clusterbomb`（乘积模式）和 `pitchfork`（草叉模式），与 Burpsuite / Yakit 对齐
 7. 每次请求自动携带随机 X-Forwarded-For 等伪造IP头
@@ -31,7 +31,11 @@ main.py              # 主程序入口，包含全局配置、爆破函数和线
 requirements.txt     # Python依赖库
 utils/
     crypto.py        # 加密/哈希工具（DES、AES、RSA、MD5、HMAC、Base64）
-    captchadet.py    # 验证码识别模块（基于ddddocr）
+    captchadet/
+        __init__.py  # 验证码识别模块导出
+        ocr.py       # 验证码识别统一封装（DdddOcr / RuoyiOcr）
+        dddd/        # 通用验证码模型与推理逻辑
+        ruoyi/       # 若依验证码模型与推理逻辑
     execjs.py        # JS脚本执行模块（基于QuickJS）
 test/
     signature.js     # JS脚本示例文件
@@ -49,12 +53,14 @@ requirements.txt 中包含以下依赖：
 
 ```
 curl_cffi       # HTTP请求库，支持浏览器TLS指纹模拟
-ddddocr         # 验证码识别（可选功能，不使用验证码识别可不安装）
 lxml            # HTML解析，用于XPath提取CSRF Token等
 pycryptodome    # 加密算法库
+opencv-python   # 图像预处理
+numpy           # 数值计算
+onnxruntime     # ONNX模型推理
 ```
 
-> 可选：ddddocr 运行可能需要安装 VC 运行时：https://learn.microsoft.com/en-us/cpp/windows/latest-supported-vc-redist
+> 可选：Windows 下首次使用 onnxruntime 可能需要安装 VC 运行时：https://learn.microsoft.com/en-us/cpp/windows/latest-supported-vc-redist
 
 > 可选：如果需要执行JS脚本，需手动下载 [QuickJS](https://github.com/quickjs-ng/quickjs) 并将路径添加到环境变量中
 
@@ -171,21 +177,30 @@ print(signature)
 
 ## 六、验证码识别（可选）
 
-验证码识别基于 [ddddocr](https://github.com/sml2h3/ddddocr)，支持常见的图片验证码识别：
+验证码识别已内置在 `utils/captchadet` 中，提供两个后端：
+
++ `captchadet.DdddOcr()`：通用验证码识别
++ `captchadet.RuoyiOcr()`：若依框架验证码识别（新增）
 
 ```python
 from utils import captchadet
 
-# 初始化识别模型
-ocr = captchadet.init()
+# 二选一：通用识别 or 若依识别
+ocr = captchadet.DdddOcr()
+# ocr = captchadet.RuoyiOcr()
 
-# 方式一：识别字节格式的图片验证码
+# 方式一：识别字节格式图片
 response = session.get("https://example.com/login/vcode")
-captcha = captchadet.identify_image(ocr, response.content)
+captcha = ocr.identify_image_bytes(response.content)
 
 # 方式二：识别内联Base64图片（如 data:image/png;base64,iVBOR...）
-captcha = captchadet.identify_inline_image(ocr, response.text)
+captcha = ocr.identify_image_inline(response.text)
+
+# 方式三：识别本地图片文件
+captcha = ocr.identify_image_filepath("test/captcha.png")
 ```
+
+> 建议根据目标站点选择后端：普通站点优先 `DdddOcr`，若依站点优先 `RuoyiOcr`
 
 > 在涉及到验证码识别时不建议使用多线程，应将 `configs["threads"]` 设置为 1
 
